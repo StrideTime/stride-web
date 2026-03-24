@@ -239,7 +239,7 @@ export function TodayPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-foreground mb-1">Good morning, Alex 👋</h1>
+          <h1 className="text-foreground mb-1">Good morning, Alex</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
             {todayFormatted}
             {isDailyMode && clockedIn && clockInTimeStr && (

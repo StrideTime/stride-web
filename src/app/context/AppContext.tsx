@@ -63,6 +63,39 @@ const DEFAULT_SETTINGS: AppSettings = {
   },
 };
 
+// ─── Workspace permissions ────────────────────────────────────────────────────
+
+export type PayFrequency = "weekly" | "biweekly" | "semimonthly" | "monthly" | "custom";
+export type InvitePermission = "not_allowed" | "request" | "allowed";
+export type OvertimePolicy = "none" | "after_daily" | "after_weekly" | "after_period";
+
+export interface WorkspacePermissions {
+  teamAdminsInvite: InvitePermission;
+  trackCompensation: boolean;
+  payFrequency: PayFrequency;
+  payDay: string;
+  payCustomDays?: number; // for "custom" frequency
+  overtimePolicy: OvertimePolicy;
+  overtimeThreshold: number; // hours after which OT kicks in
+  overtimeRate: number; // multiplier, e.g. 1.5
+  workDays: string[]; // e.g. ["monday","tuesday","wednesday","thursday","friday"]
+  defaultWorkStart: string;
+  defaultWorkEnd: string;
+}
+
+const DEFAULT_WS_PERMISSIONS: WorkspacePermissions = {
+  teamAdminsInvite: "not_allowed",
+  trackCompensation: true,
+  payFrequency: "biweekly",
+  payDay: "friday",
+  overtimePolicy: "after_weekly",
+  overtimeThreshold: 40,
+  overtimeRate: 1.5,
+  workDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+  defaultWorkStart: "09:00",
+  defaultWorkEnd: "17:00",
+};
+
 // ─── Active session ───────────────────────────────────────────────────────────
 
 export interface ActiveSession {
@@ -80,6 +113,7 @@ export interface AppContextType {
   setActiveWorkspace: (ws: Workspace) => void;
   workspaceRole: WorkspaceRole;
   myTeams: { team: Team; role: TeamRole }[];
+  allWorkspaceTeams: Team[];
 
   // Appearance
   darkMode: boolean;
@@ -89,9 +123,17 @@ export interface AppContextType {
   settings: AppSettings;
   updateSettings: (partial: Partial<AppSettings>) => void;
 
+  // Workspace permissions (org-level)
+  wsPermissions: WorkspacePermissions;
+  updateWsPermissions: (partial: Partial<WorkspacePermissions>) => void;
+
   // Settings navigation (shared between Sidebar and SettingsPage)
   settingsSection: string;
   setSettingsSection: (s: string) => void;
+
+  // Team selection (shared between sidebar team list and team settings sections)
+  selectedTeamId: string;
+  setSelectedTeamId: (id: string) => void;
 
   // Clock-in
   clockedIn: boolean;
@@ -116,7 +158,9 @@ const AppContext = createContext<AppContextType | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>(WORKSPACES[2]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [settingsSection, setSettingsSection] = useState("time");
+  const [wsPermissions, setWsPermissions] = useState<WorkspacePermissions>(DEFAULT_WS_PERMISSIONS);
+  const [settingsSection, setSettingsSection] = useState("account");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
   const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
@@ -153,8 +197,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     .map((tm) => ({ team: TEAMS.find((t) => t.id === tm.teamId)!, role: tm.role }))
     .filter((item) => item.team?.workspaceId === activeWorkspace.id);
 
+  const allWorkspaceTeams = TEAMS.filter((t) => t.workspaceId === activeWorkspace.id);
+
   const updateSettings = useCallback((partial: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  const updateWsPermissions = useCallback((partial: Partial<WorkspacePermissions>) => {
+    setWsPermissions((prev) => ({ ...prev, ...partial }));
   }, []);
 
   const clockIn = useCallback(() => { setClockedIn(true); setClockInTime(new Date()); }, []);
@@ -171,10 +221,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      activeWorkspace, setActiveWorkspace, workspaceRole, myTeams,
+      activeWorkspace, setActiveWorkspace, workspaceRole, myTeams, allWorkspaceTeams,
       darkMode, toggleDarkMode,
       settings, updateSettings,
+      wsPermissions, updateWsPermissions,
       settingsSection, setSettingsSection,
+      selectedTeamId: selectedTeamId || allWorkspaceTeams[0]?.id || "", setSelectedTeamId,
       clockedIn, clockInTime, clockIn, clockOut,
       activeSession, sessionSeconds, sessionRunning,
       startSession, pauseSession, resumeSession, stopSession,

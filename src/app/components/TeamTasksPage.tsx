@@ -258,8 +258,8 @@ export function TeamTasksPage() {
       <div className="flex items-start justify-between mb-5">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center text-base"
-              style={{ backgroundColor: `${team.color}18` }}>{team.icon}</div>
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${team.color}18` }}><team.Icon className="h-4 w-4" style={{ color: team.color }} /></div>
             <h1 className="text-foreground">{team.name} Tasks</h1>
             {isAdmin && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"

@@ -461,7 +461,7 @@ export function HabitHistory({
                           day: "numeric",
                         })}: ${day.completed ? "Completed" : day.isScheduled ? "Scheduled" : "Not scheduled"}${
                           day.value !== undefined ? ` (${day.value})` : ""
-                        }${day.isInStreak ? " 🔥 Current Streak" : ""}`}
+                        }${day.isInStreak ? " - Current Streak" : ""}`}
                       >
                         {dayNum}
                       </div>

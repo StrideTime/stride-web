@@ -5,14 +5,19 @@ import {
   Settings, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
   Plus, Building2, Pause, Play, Square,
   ListTodo, Gauge, TrendingUp, SlidersHorizontal, Check,
-  Clock, CalendarDays, Bell, Palette, Shield, Plug, CreditCard,
-  ArrowLeft, LogIn, LogOut, Users,
+  ArrowLeft, LogIn, LogOut, Users, Banknote,
 } from "lucide-react";
+import {
+  SETTINGS_NAV_ITEMS,
+  CATEGORY_META,
+  getVisibleNavItems,
+  groupByCategory,
+} from "./settings/SettingsNav";
 import { cn } from "./ui/utils";
 import { useApp } from "../context/AppContext";
 import {
-  WORKSPACES, WORKSPACE_MEMBERSHIPS,
-  type Workspace, type WorkspaceRole,
+  WORKSPACES, WORKSPACE_MEMBERSHIPS, TEAM_MEMBERS,
+  type Workspace, type WorkspaceRole, type Team, type TeamRole,
 } from "../data/mockData";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -30,7 +35,7 @@ const MAIN_NAV = [
   { path: "/calendar", label: "Calendar",  icon: Calendar },
   null,
   { path: "/goals",    label: "Goals",     icon: Target },
-  { path: "/reports",  label: "Reports",   icon: BarChart2 },
+  { path: "/stats",    label: "Stats",     icon: BarChart2 },
   null,
   { path: "/focus",    label: "Focus",     icon: Zap },
   { path: "/timer",    label: "Timer",     icon: Timer },
@@ -48,24 +53,10 @@ const TEAM_NAV_STANDARD = [
 
 // Org sub-nav (for workspace admins only)
 const ORG_NAV = [
-  { subpath: "",         label: "Overview", icon: BarChart2 },
   { subpath: "/members", label: "Members",  icon: Users },
 ];
 
-// Settings nav items
-export const SETTINGS_NAV = [
-  // Personal
-  { id: "time",        label: "Time Tracking", icon: Clock,        group: "personal" as const, teamOnly: false, adminOnly: false, ownerOnly: false },
-  { id: "display",     label: "Display",       icon: Palette,      group: "personal" as const, teamOnly: false, adminOnly: false, ownerOnly: false },
-  { id: "schedule",    label: "Schedule",      icon: CalendarDays, group: "personal" as const, teamOnly: false, adminOnly: false, ownerOnly: false },
-  { id: "notif",       label: "Notifications", icon: Bell,         group: "personal" as const, teamOnly: false, adminOnly: false, ownerOnly: false },
-  { id: "account",     label: "Account",       icon: Shield,       group: "personal" as const, teamOnly: false, adminOnly: false, ownerOnly: false },
-  // Workspace
-  { id: "connections", label: "Connections",   icon: Plug,         group: "workspace" as const, teamOnly: false, adminOnly: false, ownerOnly: false },
-  { id: "billing",     label: "Billing",       icon: CreditCard,   group: "workspace" as const, teamOnly: false, adminOnly: false, ownerOnly: true },
-  // Team (team admin only)
-  { id: "team",        label: "Team",          icon: Users,        group: "team" as const,      teamOnly: true,  adminOnly: false, ownerOnly: false },
-];
+// Settings nav — imported from settings/SettingsNav.tsx
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,10 +74,11 @@ function formatClockInTime(date: Date) {
 
 // ─── Workspace switcher ───────────────────────────────────────────────────────
 
-function WorkspaceSwitcher({ activeWorkspace, onSelect, collapsed }: {
+function WorkspaceSwitcher({ activeWorkspace, onSelect, collapsed, inline }: {
   activeWorkspace: Workspace;
   onSelect: (ws: Workspace) => void;
   collapsed: boolean;
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -110,18 +102,21 @@ function WorkspaceSwitcher({ activeWorkspace, onSelect, collapsed }: {
   const ROLE_BADGE: Record<WorkspaceRole, string> = { OWNER: "Owner", ADMIN: "Admin", MEMBER: "Member" };
 
   return (
-    <div ref={ref} className="relative px-2 py-2">
+    <div ref={ref} className={cn("relative", inline ? "" : "px-2 py-2")}>
       <button
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-sidebar-accent transition-colors",
+          "w-full flex items-center gap-2 rounded-lg transition-colors",
+          inline
+            ? "px-2.5 py-2 border border-border bg-card hover:bg-accent/50 text-left"
+            : "px-2 py-1.5 hover:bg-sidebar-accent",
           collapsed && "justify-center px-0"
         )}
       >
-        <span className="text-base leading-none flex-shrink-0">{activeWorkspace.icon}</span>
+        <activeWorkspace.Icon className="h-4 w-4 flex-shrink-0" style={{ color: activeWorkspace.color }} />
         {!collapsed && (
           <>
-            <span className="flex-1 text-left text-sm font-semibold text-sidebar-foreground truncate">
+            <span className={cn("flex-1 text-left text-sm truncate", inline ? "text-foreground" : "font-semibold text-sidebar-foreground")}>
               {activeWorkspace.name}
             </span>
             <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground flex-shrink-0 transition-transform", open && "rotate-180")} />
@@ -133,7 +128,7 @@ function WorkspaceSwitcher({ activeWorkspace, onSelect, collapsed }: {
         <div className="absolute top-full left-2 right-2 mt-1 bg-popover border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1">
           {personal.length > 0 && (
             <>
-              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Personal</p>
+              <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Personal</p>
               {personal.map((ws) => (
                 <WorkspaceOption key={ws.id} ws={ws} active={activeWorkspace.id === ws.id}
                   role={ROLE_BADGE[userRoleInWs(ws)]} onSelect={() => { onSelect(ws); setOpen(false); }} />
@@ -142,7 +137,7 @@ function WorkspaceSwitcher({ activeWorkspace, onSelect, collapsed }: {
           )}
           {orgs.length > 0 && (
             <>
-              <p className={cn("px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground", personal.length > 0 ? "pt-3" : "pt-2")}>
+              <p className={cn("px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground", personal.length > 0 ? "pt-3" : "pt-2")}>
                 Organizations
               </p>
               {orgs.map((ws) => (
@@ -165,15 +160,87 @@ function WorkspaceSwitcher({ activeWorkspace, onSelect, collapsed }: {
 function WorkspaceOption({ ws, active, role, onSelect }: { ws: Workspace; active: boolean; role: string; onSelect: () => void }) {
   return (
     <button onClick={onSelect} className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-accent transition-colors", active && "bg-accent/60")}>
-      <span className="h-7 w-7 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ backgroundColor: `${ws.color}18` }}>
-        {ws.icon}
+      <span className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${ws.color}18` }}>
+        <ws.Icon className="h-3.5 w-3.5" style={{ color: ws.color }} />
       </span>
       <div className="flex-1 text-left min-w-0">
         <p className="text-foreground font-medium truncate leading-snug">{ws.name}</p>
-        <p className="text-[11px] text-muted-foreground leading-none mt-0.5">{role}</p>
+        <p className="text-xs text-muted-foreground leading-none mt-0.5">{role}</p>
       </div>
       {active && <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: ws.color }} />}
     </button>
+  );
+}
+
+// ─── Team switcher (mirrors WorkspaceSwitcher style) ─────────────────────────
+
+function TeamSwitcher({ teams, selectedId, onSelect, myTeams: userTeams }: {
+  teams: Team[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  myTeams: { team: Team; role: TeamRole }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const selected = teams.find((t) => t.id === selectedId) ?? teams[0];
+  if (!selected || teams.length === 0) return null;
+
+  const myRole = (teamId: string) => {
+    const m = userTeams.find((mt) => mt.team.id === teamId);
+    return m?.role === "ADMIN" ? "Admin" : m ? "Member" : "Org access";
+  };
+
+  const memberCount = (teamId: string) => {
+    return TEAM_MEMBERS.filter((tm) => tm.teamId === teamId).length;
+  };
+
+  return (
+    <div ref={ref} className="relative px-2 mb-1">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2 px-2.5 py-2 border border-sidebar-border bg-sidebar-accent rounded-lg hover:bg-sidebar-accent/80 transition-colors text-left"
+      >
+        <span className="h-6 w-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${selected.color}18` }}>
+          <selected.Icon className="h-3 w-3" style={{ color: selected.color }} />
+        </span>
+        <span className="flex-1 text-sm text-sidebar-foreground font-medium truncate">{selected.name}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground flex-shrink-0 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-2 right-2 mt-1 bg-popover border border-border rounded-xl shadow-xl z-50 overflow-hidden py-1">
+          <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Teams</p>
+          {teams.map((t) => {
+            const isActive = t.id === selectedId;
+            return (
+              <button
+                key={t.id}
+                onClick={() => { onSelect(t.id); setOpen(false); }}
+                className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-accent transition-colors", isActive && "bg-accent/60")}
+              >
+                <span className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${t.color}18` }}>
+                  <t.Icon className="h-3.5 w-3.5" style={{ color: t.color }} />
+                </span>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-foreground font-medium truncate leading-snug">{t.name}</p>
+                  <p className="text-xs text-muted-foreground leading-none mt-0.5">{myRole(t.id)} · {memberCount(t.id)} members</p>
+                </div>
+                {isActive && <Check className="h-3.5 w-3.5 flex-shrink-0" style={{ color: t.color }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -182,7 +249,7 @@ function WorkspaceOption({ ws, active, role, onSelect }: { ws: Workspace; active
 function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean }) {
   if (collapsed) return <div className="my-2 mx-3 h-px bg-sidebar-border" />;
   return (
-    <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+    <p className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
       {label}
     </p>
   );
@@ -191,7 +258,7 @@ function SectionLabel({ label, collapsed }: { label: string; collapsed: boolean 
 // ─── Collapsible team section ─────────────────────────────────────────────────
 
 function TeamSection({ team, role, collapsed, defaultOpen }: {
-  team: { id: string; name: string; icon: string; color: string };
+  team: { id: string; name: string; Icon: import("lucide-react").LucideIcon; color: string };
   role: "ADMIN" | "STANDARD";
   collapsed: boolean;
   defaultOpen?: boolean;
@@ -206,7 +273,7 @@ function TeamSection({ team, role, collapsed, defaultOpen }: {
     return (
       <button onClick={() => navigate(`/team/${team.id}`)} title={team.name}
         className="w-full flex items-center justify-center py-2 rounded-md hover:bg-sidebar-accent transition-colors">
-        <span className="text-sm">{team.icon}</span>
+        <team.Icon className="h-3.5 w-3.5" style={{ color: team.color }} />
       </button>
     );
   }
@@ -221,7 +288,7 @@ function TeamSection({ team, role, collapsed, defaultOpen }: {
             ? "bg-sidebar-accent text-sidebar-primary font-medium"
             : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
         )}>
-        <span className="text-sm leading-none">{team.icon}</span>
+        <team.Icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: team.color }} />
         <span className="flex-1 text-left truncate">{team.name}</span>
       </NavLink>
     );
@@ -234,10 +301,10 @@ function TeamSection({ team, role, collapsed, defaultOpen }: {
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
       >
-        <span className="text-sm leading-none">{team.icon}</span>
+        <team.Icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color: team.color }} />
         <span className="flex-1 text-left text-sm text-sidebar-foreground font-medium truncate">{team.name}</span>
         {role === "ADMIN" && (
-          <span className="text-[9px] font-bold px-1 py-0.5 rounded uppercase tracking-wide flex-shrink-0"
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded uppercase tracking-wide flex-shrink-0"
             style={{ backgroundColor: `${team.color}20`, color: team.color }}>
             Admin
           </span>
@@ -254,7 +321,7 @@ function TeamSection({ team, role, collapsed, defaultOpen }: {
               to={`/team/${team.id}${item.subpath}`}
               end
               className={({ isActive }) => cn(
-                "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors",
+                "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-primary font-medium"
                   : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
@@ -292,7 +359,7 @@ function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, 
           <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
           {running && <div className="absolute inset-0 rounded-full animate-ping opacity-60" style={{ backgroundColor: session.projectColor }} />}
         </div>
-        <span className="text-[10px] font-mono tabular-nums text-muted-foreground leading-none">{formatDuration(seconds)}</span>
+        <span className="text-xs font-mono tabular-nums text-muted-foreground leading-none">{formatDuration(seconds)}</span>
         <button onClick={running ? onPause : onResume}
           className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors">
           {running ? <Pause className="h-3 w-3 text-muted-foreground" /> : <Play className="h-3 w-3 text-muted-foreground" />}
@@ -376,11 +443,11 @@ function ClockWidget({ collapsed, clockedIn, clockInTime, onClockIn, onClockOut 
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-chart-2 leading-none">Clocked in</p>
             {clockInTime && (
-              <p className="text-[11px] text-muted-foreground mt-0.5">since {formatClockInTime(clockInTime)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">since {formatClockInTime(clockInTime)}</p>
             )}
           </div>
           <button onClick={onClockOut}
-            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors flex-shrink-0">
             <LogOut className="h-3 w-3" /> Out
           </button>
         </div>
@@ -400,10 +467,10 @@ function ClockWidget({ collapsed, clockedIn, clockInTime, onClockIn, onClockOut 
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const {
-    activeWorkspace, setActiveWorkspace, workspaceRole, myTeams,
-    settings, clockedIn, clockInTime, clockIn, clockOut,
+    activeWorkspace, setActiveWorkspace, workspaceRole, myTeams, allWorkspaceTeams,
+    settings, wsPermissions, clockedIn, clockInTime, clockIn, clockOut,
     activeSession, sessionSeconds, sessionRunning, pauseSession, resumeSession, stopSession,
-    settingsSection, setSettingsSection,
+    settingsSection, setSettingsSection, selectedTeamId, setSelectedTeamId,
   } = useApp();
 
   const location = useLocation();
@@ -415,13 +482,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const canSeeBilling = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
   const isDailyMode = settings.timeTrackingMode === "daily";
 
-  // Filter billing from settings nav if not eligible
+  // Settings nav — filtered + grouped by category
   const isTeamAdmin = myTeams.some((mt) => mt.role === "ADMIN");
-  const visibleSettingsNav = SETTINGS_NAV.filter((s) => {
-    if (s.ownerOnly) return canSeeBilling;
-    if (s.teamOnly) return isTeamAdmin;
-    return true;
-  });
+  const visibleSettingsItems = getVisibleNavItems(canSeeBilling, isTeamAdmin, activeWorkspace.type);
+  const settingsGroups = groupByCategory(visibleSettingsItems);
 
   return (
     <aside className={cn(
@@ -429,9 +493,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       collapsed ? "w-[56px]" : "w-[220px]"
     )}>
 
-      {/* ── Workspace switcher ── */}
+      {/* ── Top bar: workspace switcher or back button ── */}
       <div className="border-b border-sidebar-border">
-        <WorkspaceSwitcher activeWorkspace={activeWorkspace} onSelect={setActiveWorkspace} collapsed={collapsed} />
+        {isSettingsPage ? (
+          <button
+            onClick={() => navigate("/")}
+            className={cn(
+              "w-full flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors",
+              collapsed && "justify-center px-0"
+            )}
+            title={collapsed ? "Back to app" : undefined}
+          >
+            <ArrowLeft className="h-4 w-4 flex-shrink-0" />
+            {!collapsed && <span>Back to app</span>}
+          </button>
+        ) : (
+          <WorkspaceSwitcher activeWorkspace={activeWorkspace} onSelect={setActiveWorkspace} collapsed={collapsed} />
+        )}
       </div>
 
       {/* ── Nav area ── */}
@@ -440,44 +518,82 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {/* ─── SETTINGS MODE ─── */}
         {isSettingsPage ? (
           <>
-            {/* Back to app */}
-            <button
-              onClick={() => navigate("/")}
-              className={cn(
-                "w-full flex items-center gap-2 px-2 py-2 rounded-md text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors mb-1",
-                collapsed && "justify-center px-0"
-              )}
-              title={collapsed ? "Back to app" : undefined}
-            >
-              <ArrowLeft className="h-4 w-4 flex-shrink-0" />
-              {!collapsed && <span>Back to app</span>}
-            </button>
-
-            {!collapsed && <div className="mx-1 h-px bg-sidebar-border mb-2" />}
-
+            {/* Workspace selector with label */}
             {!collapsed && (
-              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                Settings
-              </p>
+              <div className="px-2 mb-1">
+                <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                  Settings for
+                </p>
+                <div className="relative">
+                  <WorkspaceSwitcher activeWorkspace={activeWorkspace} onSelect={setActiveWorkspace} collapsed={false} inline />
+                </div>
+              </div>
             )}
 
-            {visibleSettingsNav.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSettingsSection(s.id)}
-                title={collapsed ? s.label : undefined}
-                className={cn(
-                  "w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors",
-                  collapsed && "justify-center px-0",
-                  settingsSection === s.id
-                    ? "bg-sidebar-accent text-sidebar-primary font-medium"
-                    : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                )}
-              >
-                <s.icon className={cn("h-4 w-4 flex-shrink-0", settingsSection === s.id ? "text-sidebar-primary" : "text-muted-foreground")} />
-                {!collapsed && <span>{s.label}</span>}
-              </button>
-            ))}
+            {/* Grouped settings nav */}
+            {settingsGroups.map((group, groupIdx) => {
+              const meta = CATEGORY_META[group.category];
+              const isWorkspaceScoped = group.category === "workspace-admin" || group.category === "my-workspace" || group.category === "team";
+
+              return (
+                <div key={group.category}>
+                  {/* Divider between groups */}
+                  {collapsed
+                    ? <div className="my-2 mx-3 h-px bg-sidebar-border" />
+                    : <div className="my-1.5 mx-1 h-px bg-sidebar-border" />
+                  }
+
+                  {/* Category header */}
+                  {!collapsed && (
+                    <p className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      {activeWorkspace.type === "PERSONAL" && meta.personalLabel ? meta.personalLabel : meta.label}
+                      {isWorkspaceScoped && (
+                        <span className="normal-case tracking-normal font-normal text-muted-foreground/40">
+                          {" \u00B7 "}{activeWorkspace.name}
+                        </span>
+                      )}
+                    </p>
+                  )}
+
+                  {/* Team selector — above nav items for Team category */}
+                  {group.category === "team" && !collapsed && (() => {
+                    const teamsToShow = isOrgAdmin
+                      ? allWorkspaceTeams
+                      : myTeams.map((mt) => mt.team);
+
+                    if (teamsToShow.length === 0) return null;
+
+                    return (
+                      <TeamSwitcher
+                        teams={teamsToShow}
+                        selectedId={selectedTeamId}
+                        onSelect={setSelectedTeamId}
+                        myTeams={myTeams}
+                      />
+                    );
+                  })()}
+
+                  {/* Nav items */}
+                  {group.items.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSettingsSection(s.id)}
+                      title={collapsed ? s.label : undefined}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors",
+                        collapsed && "justify-center px-0",
+                        settingsSection === s.id
+                          ? "bg-sidebar-accent text-sidebar-primary font-medium"
+                          : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                      )}
+                    >
+                      <s.icon className={cn("h-4 w-4 flex-shrink-0", settingsSection === s.id ? "text-sidebar-primary" : "text-muted-foreground")} />
+                      {!collapsed && <span>{s.label}</span>}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
           </>
         ) : (
           /* ─── NORMAL MODE ─── */

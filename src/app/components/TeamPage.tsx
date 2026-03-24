@@ -247,8 +247,8 @@ export function TeamPage() {
     return (
       <div className="p-6 max-w-[800px] mx-auto">
         <div className="flex items-center gap-3 mb-6">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: `${team.color}20` }}>
-            {team.icon}
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${team.color}20` }}>
+            <team.Icon className="h-5 w-5" style={{ color: team.color }} />
           </div>
           <div>
             <h1 className="text-foreground">{team.name}</h1>
@@ -277,8 +277,8 @@ export function TeamPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center text-lg" style={{ backgroundColor: `${team.color}20` }}>
-            {team.icon}
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${team.color}20` }}>
+            <team.Icon className="h-5 w-5" style={{ color: team.color }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export function TeamPage() {
         <div className="flex items-start gap-2 p-3 rounded-xl border border-border bg-muted/30">
           <Info className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            The <span className="text-foreground">🔥 logging streak</span> reflects consecutive days each member has tracked at least 30 min of work — consistent engagement, not output.
+            The <span className="text-foreground">logging streak</span> reflects consecutive days each member has tracked at least 30 min of work — consistent engagement, not output.
           </p>
         </div>
 
@@ -383,7 +383,6 @@ export function TeamPage() {
             </div>
             {highRisk.length === 0 && medRisk.length === 0 ? (
               <div className="px-5 py-8 text-center">
-                <p className="text-xl mb-1">🎉</p>
                 <p className="text-xs text-muted-foreground">All clear — no signals this week.</p>
               </div>
             ) : (

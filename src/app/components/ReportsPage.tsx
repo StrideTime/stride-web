@@ -216,7 +216,7 @@ function EstimateBar({ label, est, actual }: { label: string; est: number; actua
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function ReportsPage() {
+export function ReportsPage({ embedded }: { embedded?: boolean } = {}) {
   const [range, setRange] = useState<Range>("this_week");
   const totalHours = DAILY_HOURS_WEEK.reduce((s, d) => s + d.hours, 0);
   const totalProjectHours = PROJECT_TIME.reduce((s, p) => s + p.hours, 0);
@@ -225,15 +225,10 @@ export function ReportsPage() {
   const currentStreak = 7; // consecutive days
   const bestStreak = 14;
 
-  return (
-    <div className="p-6 max-w-[1100px] mx-auto">
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-foreground mb-1">Reports</h1>
-          <p className="text-sm text-muted-foreground">Your productivity snapshot — tracked time, task velocity, and focus patterns.</p>
-        </div>
+  const content = (
+    <>
+      {/* Range selector */}
+      <div className="flex items-center justify-end mb-5">
         <div className="relative">
           <select value={range} onChange={(e) => setRange(e.target.value as Range)}
             className="appearance-none pl-3 pr-8 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer">
@@ -435,7 +430,7 @@ export function ReportsPage() {
               <p className="text-sm text-foreground flex-1 min-w-0 truncate">{g.title}</p>
               <div className="flex items-center gap-3 flex-shrink-0">
                 {g.atRisk && (
-                  <span className="text-[11px] text-chart-5 bg-chart-5/10 px-1.5 py-0.5 rounded-full">⚠ at risk</span>
+                  <span className="text-[11px] text-chart-5 bg-chart-5/10 px-1.5 py-0.5 rounded-full">At risk</span>
                 )}
                 <div className="w-28 h-1.5 rounded-full bg-muted overflow-hidden">
                   <div className="h-full rounded-full" style={{ width: `${g.progress}%`, backgroundColor: g.color }} />
@@ -447,6 +442,18 @@ export function ReportsPage() {
           ))}
         </div>
       </Section>
+    </>
+  );
+
+  if (embedded) return <div className="space-y-5">{content}</div>;
+
+  return (
+    <div className="p-6 max-w-[1100px] mx-auto">
+      <div className="mb-6">
+        <h1 className="text-foreground mb-1">Stats</h1>
+        <p className="text-sm text-muted-foreground">Your productivity snapshot — tracked time, task velocity, and focus patterns.</p>
+      </div>
+      {content}
     </div>
   );
 }

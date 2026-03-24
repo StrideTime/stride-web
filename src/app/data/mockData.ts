@@ -1,3 +1,6 @@
+import type { LucideIcon } from "lucide-react";
+import { Zap, Rocket, Building2, Lightbulb, Settings, Palette, Megaphone, Package } from "lucide-react";
+
 // ─── Enum-style types ────────────────────────────────────────────────────────
 
 export type WorkspaceType = "PERSONAL" | "ORGANIZATION";
@@ -14,7 +17,7 @@ export interface Workspace {
   id: string;
   name: string;
   type: WorkspaceType;
-  icon: string;
+  Icon: LucideIcon;
   color: string;
 }
 
@@ -28,7 +31,7 @@ export interface Team {
   id: string;
   workspaceId: string;
   name: string;
-  icon: string;
+  Icon: LucideIcon;
   color: string;
   description: string;
 }
@@ -117,26 +120,35 @@ export const USERS: User[] = [
 // ─── Workspaces ───────────────────────────────────────────────────────────────
 
 export const WORKSPACES: Workspace[] = [
-  { id: "ws1", name: "Personal",     type: "PERSONAL",     icon: "⚡", color: "#61afef" },
-  { id: "ws2", name: "Side Project", type: "PERSONAL",     icon: "🚀", color: "#98c379" },
-  { id: "ws3", name: "Acme Corp",    type: "ORGANIZATION", icon: "🏢", color: "#c678dd" },
-  { id: "ws4", name: "Velocity Inc", type: "ORGANIZATION", icon: "💡", color: "#e5c07b" },
+  { id: "ws1", name: "Personal",     type: "PERSONAL",     Icon: Zap,       color: "#61afef" },
+  { id: "ws2", name: "Side Project", type: "PERSONAL",     Icon: Rocket,    color: "#98c379" },
+  { id: "ws3", name: "Acme Corp",    type: "ORGANIZATION", Icon: Building2, color: "#c678dd" },
+  { id: "ws4", name: "Velocity Inc", type: "ORGANIZATION", Icon: Lightbulb, color: "#e5c07b" },
 ];
 
 export const WORKSPACE_MEMBERSHIPS: WorkspaceMembership[] = [
+  // Personal workspaces
   { workspaceId: "ws1", userId: "u1", role: "OWNER" },
   { workspaceId: "ws2", userId: "u1", role: "OWNER" },
-  { workspaceId: "ws3", userId: "u1", role: "ADMIN" },  // workspace admin for Acme Corp
+  // Acme Corp — full org with multiple roles
+  { workspaceId: "ws3", userId: "u1", role: "OWNER" },   // Alex is the owner
+  { workspaceId: "ws3", userId: "u2", role: "ADMIN" },   // Maya is an admin
+  { workspaceId: "ws3", userId: "u3", role: "MEMBER" },  // Liam
+  { workspaceId: "ws3", userId: "u4", role: "MEMBER" },  // Priya
+  { workspaceId: "ws3", userId: "u5", role: "ADMIN" },   // Jordan is an admin
+  { workspaceId: "ws3", userId: "u6", role: "MEMBER" },  // Sam
+  { workspaceId: "ws3", userId: "u7", role: "MEMBER" },  // Nina
+  // Velocity Inc
   { workspaceId: "ws4", userId: "u1", role: "MEMBER" },
 ];
 
 // ─── Teams ────────────────────────────────────────────────────────────────────
 
 export const TEAMS: Team[] = [
-  { id: "t1", workspaceId: "ws3", name: "Engineering", icon: "⚙️", color: "#61afef",  description: "Core product and infrastructure" },
-  { id: "t2", workspaceId: "ws3", name: "Design",      icon: "🎨", color: "#c678dd",  description: "Product design and brand" },
-  { id: "t3", workspaceId: "ws3", name: "Marketing",   icon: "📣", color: "#e5c07b",  description: "Growth and campaigns" },
-  { id: "t4", workspaceId: "ws4", name: "Product",     icon: "📦", color: "#98c379",  description: "Product management" },
+  { id: "t1", workspaceId: "ws3", name: "Engineering", Icon: Settings,  color: "#61afef",  description: "Core product and infrastructure" },
+  { id: "t2", workspaceId: "ws3", name: "Design",      Icon: Palette,   color: "#c678dd",  description: "Product design and brand" },
+  { id: "t3", workspaceId: "ws3", name: "Marketing",   Icon: Megaphone, color: "#e5c07b",  description: "Growth and campaigns" },
+  { id: "t4", workspaceId: "ws4", name: "Product",     Icon: Package,   color: "#98c379",  description: "Product management" },
 ];
 
 export const TEAM_MEMBERS: TeamMember[] = [

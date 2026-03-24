@@ -64,8 +64,8 @@ function TeamSummaryCard({ teamId }: { teamId: string }) {
       <div className="h-0.5" style={{ backgroundColor: team.color }} />
       <div className="px-4 py-3.5 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg flex items-center justify-center text-base"
-            style={{ backgroundColor: `${team.color}18` }}>{team.icon}</div>
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: `${team.color}18` }}><team.Icon className="h-4 w-4" style={{ color: team.color }} /></div>
           <div>
             <p className="text-sm font-semibold text-foreground">{team.name}</p>
             <p className="text-xs text-muted-foreground">{orgStats.memberCount} members · {team.description}</p>
@@ -117,7 +117,7 @@ function TeamSummaryCard({ teamId }: { teamId: string }) {
 interface OrgMember {
   user: User;
   workspaceRole: string;
-  teams: { id: string; name: string; icon: string; color: string; role: string }[];
+  teams: { id: string; name: string; Icon: import("lucide-react").LucideIcon; color: string; role: string }[];
 }
 
 function MembersTab({ workspaceId }: { workspaceId: string }) {
@@ -136,7 +136,7 @@ function MembersTab({ workspaceId }: { workspaceId: string }) {
         .filter((tm) => tm.userId === wm.userId && orgTeams.some((t) => t.id === tm.teamId))
         .map((tm) => {
           const team = orgTeams.find((t) => t.id === tm.teamId)!;
-          return { id: team.id, name: team.name, icon: team.icon, color: team.color, role: tm.role };
+          return { id: team.id, name: team.name, Icon: team.Icon, color: team.color, role: tm.role };
         });
       return { user, workspaceRole: wm.role, teams };
     }).filter((m) => m.user);
@@ -162,7 +162,7 @@ function MembersTab({ workspaceId }: { workspaceId: string }) {
           <select value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)}
             className="appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer">
             <option value="all">All teams</option>
-            {orgTeams.map((t) => <option key={t.id} value={t.id}>{t.icon} {t.name}</option>)}
+            {orgTeams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
         <span className="ml-auto text-xs text-muted-foreground">{filtered.length} members</span>
@@ -209,7 +209,7 @@ function MembersTab({ workspaceId }: { workspaceId: string }) {
                 <button key={t.id} onClick={() => navigate(`/team/${t.id}`)}
                   className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity"
                   style={{ backgroundColor: `${t.color}15`, color: t.color }}>
-                  <span>{t.icon}</span>{t.name}
+                  <t.Icon className="h-2.5 w-2.5" />{t.name}
                   {t.role === "ADMIN" && <Shield className="h-2.5 w-2.5 ml-0.5" />}
                 </button>
               ))}
@@ -244,9 +244,7 @@ export function OrgDashboard() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Derive tab from URL
-  const activeTab: OrgTab = location.pathname.endsWith("/members") ? "members" : "overview";
-  const [localTab, setLocalTab] = useState<"overview" | "projects">("overview");
+  // This page now only handles /org/members
 
   const isAdmin = workspaceRole === "ADMIN" || workspaceRole === "OWNER";
 
@@ -274,10 +272,7 @@ export function OrgDashboard() {
   const totalHighRisk = allOrgStats.filter((s) => s.burnoutRisk === "HIGH").length;
   const totalMedRisk  = allOrgStats.filter((s) => s.burnoutRisk === "MEDIUM").length;
 
-  const TABS = [
-    { id: "overview" as const, label: "Overview", path: "/org" },
-    { id: "members"  as const, label: "Members",  path: "/org/members" },
-  ];
+  // No more tabs — overview moved to Stats page
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
@@ -285,9 +280,9 @@ export function OrgDashboard() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center text-lg"
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center"
             style={{ backgroundColor: `${activeWorkspace.color}20` }}>
-            {activeWorkspace.icon}
+            <activeWorkspace.Icon className="h-5 w-5" style={{ color: activeWorkspace.color }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -322,43 +317,11 @@ export function OrgDashboard() {
         </div>
       )}
 
-      {/* Tab bar — Overview/Members derived from URL, Projects is local sub-tab */}
-      <div className="flex items-center gap-1 mb-5 border-b border-border">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => navigate(t.path)}
-            className={cn("px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-              activeTab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
-            {t.label}
-          </button>
-        ))}
-        {activeTab === "overview" && (
-          <>
-            <button onClick={() => setLocalTab("overview")}
-              className={cn("px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-                localTab === "overview" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
-              Teams
-            </button>
-            <button onClick={() => setLocalTab("projects")}
-              className={cn("px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-                localTab === "projects" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
-              Projects
-            </button>
-          </>
-        )}
-      </div>
+      {/* Members */}
+      <MembersTab workspaceId={activeWorkspace.id} />
 
-      {/* Members tab */}
-      {activeTab === "members" && <MembersTab workspaceId={activeWorkspace.id} />}
-
-      {/* Overview: Teams grid */}
-      {activeTab === "overview" && localTab === "overview" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {orgTeams.map((team) => <TeamSummaryCard key={team.id} teamId={team.id} />)}
-        </div>
-      )}
-
-      {/* Overview: Projects list */}
-      {activeTab === "overview" && localTab === "projects" && (
+      {/* Hidden — kept for reference, overview moved to Stats */}
+      {false && (
         <div className="space-y-2">
           <div className="grid grid-cols-[1fr_100px_80px_100px_120px] gap-4 px-4 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wider">
             <span>Project</span><span className="text-center">Status</span><span className="text-center">Team</span><span className="text-right">Progress</span><span className="text-right">Deadline</span>
@@ -381,7 +344,7 @@ export function OrgDashboard() {
                   <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: `${sc}15`, color: sc }}>{PROJECT_STATUS_LABEL[project.status]}</span>
                 </div>
                 <div className="flex justify-center">
-                  {team ? <span className="text-lg">{team.icon}</span> : <span className="text-xs text-muted-foreground">—</span>}
+                  {team ? <team.Icon className="h-4 w-4" style={{ color: team.color }} /> : <span className="text-xs text-muted-foreground">—</span>}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-xs font-medium text-foreground">{project.progress}%</span>

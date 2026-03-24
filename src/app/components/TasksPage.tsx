@@ -521,7 +521,7 @@ export function TasksPage() {
                 className="appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer">
                 <option value="">All my teams</option>
                 {myTeams.map((team) => (
-                  <option key={team.id} value={team.id}>{team.icon} {team.name}</option>
+                  <option key={team.id} value={team.id}>{team.name}</option>
                 ))}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />

@@ -3,6 +3,7 @@ import {
   Plus, Target, CheckCircle2, Circle, ChevronDown, ChevronUp,
   FolderOpen, Flame, Trophy, TrendingUp, Calendar, Flag,
   MoreHorizontal, Check, Zap, User, Users, Building2, Lock,
+  Briefcase, BookOpen, Star, Heart,
 } from "lucide-react";
 import { cn } from "./ui/utils";
 import { useApp } from "../context/AppContext";
@@ -83,9 +84,9 @@ const ALL_GOALS: Goal[] = [
   },
 ];
 
-const CATEGORY_CONFIG: Record<GoalCategory, { label: string; icon: string }> = {
-  work: { label: "Work", icon: "💼" }, learning: { label: "Learning", icon: "📚" },
-  personal: { label: "Personal", icon: "⭐" }, health: { label: "Health", icon: "🏃" },
+const CATEGORY_CONFIG: Record<GoalCategory, { label: string; Icon: typeof Target }> = {
+  work: { label: "Work", Icon: Briefcase }, learning: { label: "Learning", Icon: BookOpen },
+  personal: { label: "Personal", Icon: Star }, health: { label: "Health", Icon: Heart },
 };
 
 const STATUS_CONFIG: Record<GoalStatus, { label: string; color: string }> = {
@@ -122,8 +123,8 @@ function GoalCard({ goal, onToggleMilestone, onLogProgress, canEdit }: {
       <div className="p-4">
         {/* Header */}
         <div className="flex items-start gap-3 mb-3">
-          <div className="h-9 w-9 rounded-lg flex items-center justify-center text-base flex-shrink-0"
-            style={{ backgroundColor: `${goal.color}15` }}>{cat.icon}</div>
+          <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${goal.color}15` }}><cat.Icon className="h-4 w-4" style={{ color: goal.color }} /></div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2">
               <p className="text-sm font-semibold text-foreground flex-1 leading-snug">{goal.title}</p>
@@ -290,13 +291,16 @@ function CreateGoalForm({ scope, onClose }: { scope: GoalScope; onClose: () => v
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category</label>
             <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(CATEGORY_CONFIG) as GoalCategory[]).map((c) => (
-                <button key={c} onClick={() => setCategory(c)}
-                  className={cn("flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all",
-                    category === c ? "border-primary/50 bg-primary/8 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
-                  {CATEGORY_CONFIG[c].icon} {CATEGORY_CONFIG[c].label}
-                </button>
-              ))}
+              {(Object.keys(CATEGORY_CONFIG) as GoalCategory[]).map((c) => {
+                const CatIcon = CATEGORY_CONFIG[c].Icon;
+                return (
+                  <button key={c} onClick={() => setCategory(c)}
+                    className={cn("flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-all",
+                      category === c ? "border-primary/50 bg-primary/8 text-primary" : "border-border text-muted-foreground hover:bg-muted")}>
+                    <CatIcon className="h-3 w-3" /> {CATEGORY_CONFIG[c].label}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div>
