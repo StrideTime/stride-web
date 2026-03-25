@@ -1,14 +1,16 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
-  CheckCircle2, Circle, Plus, MoreHorizontal, Play, Search,
+  Plus, MoreHorizontal, Play, Search,
   ChevronDown, Tag as TagIcon, FolderOpen, X, ArrowRight,
-  List, LayoutGrid, Users, User,
+  List, LayoutGrid, Users, User, Check,
+  Clock, Timer, CalendarDays, AlertTriangle, GitPullRequest, Ban, UserCircle,
 } from "lucide-react";
 import { cn } from "./ui/utils";
 import { useApp } from "../context/AppContext";
+import { TaskDetailModal, TASK_TYPE_META, PRIORITY_META } from "./TaskDetailModal";
 import {
   TASKS, PROJECTS, TAGS, USERS, TEAMS, TEAM_MEMBERS,
-  type Task, type TaskStatus, type Difficulty, type Project, type Tag,
+  type Task, type TaskStatus, type TaskType, type Priority, type Difficulty, type Project, type Tag,
 } from "../data/mockData";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -33,167 +35,321 @@ function formatMinutes(m: number) {
   return min ? `${h}h ${min}m` : `${h}h`;
 }
 
-// ─── List task card ───────────────────────────────────────────────────────────
+// ─── Status options ──────────────────────────────────────────────────────────
 
-function TaskCard({
-  task, tags, projectColor, assigneeName, assigneeInitials, assigneeColor, onToggle,
-}: {
-  task: Task; tags: Tag[]; projectColor: string;
-  assigneeName: string; assigneeInitials: string; assigneeColor: string;
-  onToggle: (id: number) => void;
-}) {
-  const done = task.status === "COMPLETED";
-  const active = task.status === "IN_PROGRESS";
+const STATUS_OPTS: { value: TaskStatus; label: string; color: string }[] = [
+  { value: "BACKLOG",     label: "Backlog",     color: "#5c6370" },
+  { value: "TODO",        label: "To Do",       color: "#abb2bf" },
+  { value: "IN_PROGRESS", label: "In Progress", color: "#61afef" },
+  { value: "IN_REVIEW",   label: "In Review",   color: "#c678dd" },
+  { value: "BLOCKED",     label: "Blocked",     color: "#e06c75" },
+  { value: "COMPLETED",   label: "Done",        color: "#98c379" },
+];
+
+function StatusPill({ status, onChange }: { status: TaskStatus; onChange: (s: TaskStatus) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const opt = STATUS_OPTS.find((o) => o.value === status) ?? STATUS_OPTS[1];
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
 
   return (
-    <div
-      className={cn(
-        "relative flex items-start gap-3 rounded-lg border p-3 transition-all group overflow-hidden",
-        done ? "opacity-55" : "hover:border-border/80"
-      )}
-      style={{
-        backgroundColor: active ? "rgba(97,175,239,0.05)" : "var(--card)",
-        borderColor: active ? "#61afef40" : "var(--border)",
-      }}
-    >
-      <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-l-lg" style={{ backgroundColor: projectColor }} />
-      <button onClick={() => onToggle(task.id)} className="flex-shrink-0 mt-0.5 hover:scale-110 transition-transform">
-        {done ? (
-          <CheckCircle2 className="h-4 w-4" style={{ color: "#98c379" }} />
-        ) : active ? (
-          <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center" style={{ borderColor: "#61afef" }}>
-            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#61afef" }} />
-          </div>
-        ) : (
-          <Circle className="h-4 w-4 text-muted-foreground" />
-        )}
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium transition-all hover:opacity-80"
+        style={{ backgroundColor: `${opt.color}15`, color: opt.color }}
+      >
+        <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: opt.color }} />
+        {opt.label}
+        <ChevronDown className="h-2.5 w-2.5 opacity-60" />
       </button>
-      <div className="flex-1 min-w-0">
-        <p className={cn("text-sm leading-snug", done && "line-through text-muted-foreground")}>{task.title}</p>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {tags.map((t) => (
-              <span key={t.id} className="text-[11px] px-1.5 py-0.5 rounded-full font-medium"
-                style={{ backgroundColor: `${t.color}18`, color: t.color }}>{t.name}</span>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DIFF_COLOR[task.difficulty] }} />
-          <span className="text-xs text-muted-foreground capitalize">{task.difficulty.toLowerCase()}</span>
-          <span className="text-muted-foreground/40 text-xs">·</span>
-          <span className="text-xs text-muted-foreground">{formatMinutes(task.estimatedMinutes)}</span>
-          {task.dueDate && (
-            <><span className="text-muted-foreground/40 text-xs">·</span>
-              <span className="text-xs text-muted-foreground">{task.dueDate}</span></>
-          )}
-        </div>
-      </div>
-      <div className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0 mt-0.5"
-        style={{ backgroundColor: `${assigneeColor}20`, color: assigneeColor }} title={assigneeName}>
-        {assigneeInitials}
-      </div>
-      {!done && (
-        <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button className="h-7 w-7 rounded-md flex items-center justify-center hover:bg-primary/15 transition-colors" title="Start timer">
-            <Play className="h-3.5 w-3.5 text-primary" />
-          </button>
-          <button className="h-7 w-7 rounded-md flex items-center justify-center hover:bg-muted transition-colors">
-            <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-30 bg-popover border border-border rounded-lg shadow-xl overflow-hidden py-1 min-w-[140px]">
+          {STATUS_OPTS.map((o) => (
+            <button key={o.value}
+              onClick={(e) => { e.stopPropagation(); onChange(o.value); setOpen(false); }}
+              className={cn("w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-muted transition-colors text-left",
+                status === o.value && "bg-muted/60 font-medium")}>
+              <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: o.color }} />
+              <span className="text-foreground">{o.label}</span>
+              {status === o.value && <Check className="h-3 w-3 text-primary ml-auto" />}
+            </button>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Task insight helper ─────────────────────────────────────────────────────
+// Returns the single most important thing about this task right now
+
+type InsightLevel = "normal" | "warn" | "danger" | "done";
+
+function getTaskInsight(task: Task): { text: string; level: InsightLevel; Icon: typeof Clock } {
+  const worked = task.actualMinutes ?? 0;
+  const estimate = task.estimatedMinutes;
+  const done = task.status === "COMPLETED";
+
+  if (done) {
+    return worked > 0
+      ? { text: `Done in ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "done", Icon: Check }
+      : { text: "Completed", level: "done", Icon: Check };
+  }
+
+  // Blocked is always highest priority
+  if (task.status === "BLOCKED") {
+    return { text: `Blocked \u00B7 ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "danger", Icon: Ban };
+  }
+
+  // In review — show as informational with time spent
+  if (task.status === "IN_REVIEW") {
+    return { text: `In review \u00B7 ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "normal", Icon: GitPullRequest };
+  }
+
+  // Check due date urgency — more actionable than time budget
+  if (task.dueDate) {
+    const due = new Date(task.dueDate);
+    const now = new Date();
+    const daysLeft = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 0) {
+      return { text: `Overdue by ${Math.abs(daysLeft)}d \u00B7 ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "danger", Icon: AlertTriangle };
+    }
+    if (daysLeft === 0) {
+      return { text: `Due today \u00B7 ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "danger", Icon: CalendarDays };
+    }
+    if (daysLeft <= 2) {
+      return { text: `Due in ${daysLeft}d \u00B7 ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "warn", Icon: CalendarDays };
+    }
+  }
+
+  // Time budget
+  if (worked > estimate && estimate > 0) {
+    const overBy = worked - estimate;
+    return { text: `${formatMinutes(overBy)} over estimate \u00B7 ${formatMinutes(worked)} of ${formatMinutes(estimate)}`, level: "danger", Icon: AlertTriangle };
+  }
+  if (estimate > 0 && worked >= estimate * 0.8) {
+    return { text: `${formatMinutes(worked)} of ${formatMinutes(estimate)} used`, level: "warn", Icon: Clock };
+  }
+
+  // Default
+  if (worked > 0) {
+    return { text: `${formatMinutes(worked)} of ${formatMinutes(estimate)} tracked`, level: "normal", Icon: Clock };
+  }
+  return { text: `${formatMinutes(estimate)} estimated`, level: "normal", Icon: Timer };
+}
+
+const INSIGHT_STYLES: Record<InsightLevel, string> = {
+  normal: "text-muted-foreground",
+  warn:   "text-chart-4",
+  danger: "text-destructive",
+  done:   "text-chart-2",
+};
+
+// ─── List task card ───────────────────────────────────────────────────────────
+
+function TaskCard({
+  task, projectColor, assigneeName, assigneeInitials, assigneeColor, onChangeStatus, onClick,
+}: {
+  task: Task; projectColor: string;
+  assigneeName: string; assigneeInitials: string; assigneeColor: string;
+  onChangeStatus: (id: number, status: TaskStatus) => void;
+  onClick: () => void;
+}) {
+  const done = task.status === "COMPLETED";
+  const active = task.status === "IN_PROGRESS";
+  const statusOpt = STATUS_OPTS.find((o) => o.value === task.status) ?? STATUS_OPTS[1];
+  const insight = getTaskInsight(task);
+  const typeMeta = TASK_TYPE_META[task.type];
+  const prioMeta = PRIORITY_META[task.priority];
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative rounded-xl border transition-all group text-left w-full",
+        done ? "opacity-45" : "hover:shadow-md hover:border-border/60"
+      )}
+      style={{
+        backgroundColor: "var(--card)",
+        borderColor: "var(--border)",
+      }}
+    >
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl" style={{ backgroundColor: projectColor }} />
+
+      <div className="pl-5 pr-4 py-3">
+        {/* Row 1: title + assignee */}
+        <div className="flex items-start gap-3">
+          <p className={cn("text-sm font-medium leading-snug flex-1 min-w-0", done && "line-through text-muted-foreground")}>
+            {task.title}
+          </p>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {!done && (
+              <button onClick={(e) => { e.stopPropagation(); }} className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary/10 transition-all" title="Start timer">
+                <Play className="h-3.5 w-3.5 text-primary" />
+              </button>
+            )}
+            <div className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-semibold"
+              style={{ backgroundColor: `${assigneeColor}15`, color: assigneeColor }} title={assigneeName}>
+              {assigneeInitials}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: pills + insight */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {/* Jira badge */}
+          {task.externalLink && (
+            <span className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
+              <span className="h-3 w-3 rounded-sm bg-muted-foreground flex items-center justify-center text-[7px] font-bold text-white flex-shrink-0">
+                {task.externalLink.provider === "jira" ? "J" : task.externalLink.provider === "github" ? "G" : "L"}
+              </span>
+              {task.externalLink.id}
+            </span>
+          )}
+
+          {/* Type pill */}
+          <span className="flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md"
+            style={{ backgroundColor: `${typeMeta.color}10`, color: typeMeta.color }}>
+            <typeMeta.Icon className="h-2.5 w-2.5" />
+            {typeMeta.label}
+          </span>
+
+          {/* Priority pill */}
+          <span className={cn("flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-md",
+            task.priority === "URGENT" && "animate-pulse")}
+            style={{ backgroundColor: `${prioMeta.color}10`, color: prioMeta.color }}>
+            <prioMeta.Icon className="h-2.5 w-2.5" />
+            {prioMeta.label}
+          </span>
+
+          {/* Status */}
+          <StatusPill status={task.status} onChange={(s) => { onChangeStatus(task.id, s); }} />
+
+          {/* Insight — pushed right */}
+          <div className={cn("flex items-center gap-1.5 text-xs font-medium tabular-nums ml-auto", INSIGHT_STYLES[insight.level])}>
+            <insight.Icon className="h-3 w-3 flex-shrink-0" />
+            <span>{insight.text}</span>
+          </div>
+        </div>
+      </div>
+    </button>
   );
 }
 
 // ─── Board card ───────────────────────────────────────────────────────────────
 
-function BoardCard({ task, onToggle }: { task: Task; onToggle: (id: number) => void }) {
+function BoardCard({ task, onChangeStatus, onClick }: { task: Task; onChangeStatus: (id: number, status: TaskStatus) => void; onClick: () => void }) {
   const project = PROJECTS.find((p) => p.id === task.projectId);
   const assignee = USERS.find((u) => u.id === task.assigneeId);
-  const tags = TAGS.filter((t) => task.tagIds.includes(t.id)).slice(0, 2);
   const done = task.status === "COMPLETED";
+  const insight = getTaskInsight(task);
+  const typeMeta = TASK_TYPE_META[task.type];
+  const prioMeta = PRIORITY_META[task.priority];
 
   return (
-    <div className={cn(
-      "bg-card border border-border rounded-xl overflow-hidden group cursor-pointer transition-all",
-      done ? "opacity-50" : "hover:border-border/80 hover:shadow-sm"
+    <button onClick={onClick} className={cn(
+      "bg-card border border-border rounded-xl overflow-hidden group cursor-pointer transition-all text-left w-full",
+      done ? "opacity-40" : "hover:shadow-md hover:border-border/60"
     )}>
-      <div className="h-0.5" style={{ backgroundColor: project?.color ?? "#abb2bf" }} />
-      <div className="p-3">
-        <div className="flex items-start gap-2 mb-2">
-          <button onClick={() => onToggle(task.id)} className="flex-shrink-0 mt-0.5">
-            {done
-              ? <CheckCircle2 className="h-3.5 w-3.5" style={{ color: "#98c379" }} />
-              : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
-          </button>
-          <p className={cn("text-xs leading-snug flex-1", done && "line-through text-muted-foreground")}>{task.title}</p>
-          <button className="h-5 w-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted">
-            <MoreHorizontal className="h-3 w-3 text-muted-foreground" />
-          </button>
-        </div>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2 pl-5">
-            {tags.map((t) => (
-              <span key={t.id} className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                style={{ backgroundColor: `${t.color}18`, color: t.color }}>{t.name}</span>
-            ))}
+      <div className="h-[3px]" style={{ backgroundColor: project?.color ?? "#abb2bf" }} />
+      <div className="p-3 space-y-2">
+        {/* Jira badge if linked */}
+        {task.externalLink && (
+          <div className="flex items-center gap-1.5">
+            <span className="h-4 w-4 rounded bg-muted-foreground flex items-center justify-center text-[8px] font-bold text-white flex-shrink-0">
+              {task.externalLink.provider === "jira" ? "J" : task.externalLink.provider === "github" ? "G" : "L"}
+            </span>
+            <span className="text-[10px] font-medium text-muted-foreground">{task.externalLink.id}</span>
           </div>
         )}
-        <div className="flex items-center justify-between pl-5">
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DIFF_COLOR[task.difficulty] }} />
-            <span className="text-[11px] text-muted-foreground">{formatMinutes(task.estimatedMinutes)}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {!done && (
-              <button className="h-5 w-5 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary/10">
-                <Play className="h-2.5 w-2.5 text-primary" />
-              </button>
-            )}
-            {assignee && (
-              <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-semibold"
-                style={{ backgroundColor: `${assignee.color}20`, color: assignee.color }} title={assignee.name}>
-                {assignee.initials}
-              </div>
-            )}
-          </div>
+
+        {/* Title */}
+        <p className={cn("text-xs font-medium leading-snug", done && "line-through text-muted-foreground")}>{task.title}</p>
+
+        {/* Insight */}
+        <div className={cn("flex items-center gap-1.5 text-[11px] font-medium tabular-nums", INSIGHT_STYLES[insight.level])}>
+          <insight.Icon className="h-2.5 w-2.5 flex-shrink-0" />
+          <span>{insight.text}</span>
+        </div>
+
+        {/* Footer: type + priority + assignee */}
+        <div className="flex items-center gap-1.5 pt-0.5">
+          <span className="flex items-center gap-0.5 text-[10px] font-medium px-1 py-0.5 rounded"
+            style={{ backgroundColor: `${typeMeta.color}10`, color: typeMeta.color }}>
+            <typeMeta.Icon className="h-2 w-2" />
+            {typeMeta.label}
+          </span>
+          <prioMeta.Icon className={cn("h-3 w-3", task.priority === "URGENT" && "animate-pulse")}
+            style={{ color: prioMeta.color }} />
+          {assignee && (
+            <div className="h-5 w-5 rounded-full flex items-center justify-center text-[9px] font-semibold ml-auto"
+              style={{ backgroundColor: `${assignee.color}15`, color: assignee.color }} title={assignee.name}>
+              {assignee.initials}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
 // ─── Board view ───────────────────────────────────────────────────────────────
 
-const BOARD_COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
+const ALL_COLUMNS: { status: TaskStatus; label: string; color: string }[] = [
   { status: "BACKLOG",     label: "Backlog",     color: "#5c6370" },
   { status: "TODO",        label: "To Do",       color: "#abb2bf" },
   { status: "IN_PROGRESS", label: "In Progress", color: "#61afef" },
+  { status: "IN_REVIEW",   label: "In Review",   color: "#c678dd" },
+  { status: "BLOCKED",     label: "Blocked",     color: "#e06c75" },
   { status: "COMPLETED",   label: "Done",        color: "#98c379" },
 ];
 
-function BoardView({ tasks, onToggle }: { tasks: Task[]; onToggle: (id: number) => void }) {
+function BoardView({ tasks, onChangeStatus, onClickTask, visibleStatuses }: {
+  tasks: Task[];
+  onChangeStatus: (id: number, status: TaskStatus) => void;
+  onClickTask: (task: Task) => void;
+  visibleStatuses: TaskStatus[];
+}) {
+  const columns = ALL_COLUMNS.filter((col) => visibleStatuses.includes(col.status));
+
   return (
     <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-280px)]">
-      {BOARD_COLUMNS.map((col) => {
+      {columns.map((col) => {
         const colTasks = tasks.filter((t) => t.status === col.status);
         return (
-          <div key={col.status} className="flex-shrink-0 w-[272px] flex flex-col">
+          <div key={col.status} className="flex-1 min-w-[260px] max-w-[360px] flex flex-col">
+            {/* Column header */}
             <div className="flex items-center gap-2 mb-3 px-1">
               <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: col.color }} />
               <span className="text-xs font-semibold text-foreground">{col.label}</span>
-              <span className="text-[11px] text-muted-foreground ml-auto bg-muted px-1.5 py-0.5 rounded-full">
+              <span className="text-[11px] text-muted-foreground ml-auto bg-muted px-1.5 py-0.5 rounded-full tabular-nums">
                 {colTasks.length}
               </span>
             </div>
-            <div className="flex-1 space-y-2">
+
+            {/* Column body */}
+            <div className="flex-1 rounded-xl bg-muted/20 border border-border/50 p-2 space-y-2 min-h-[120px]">
               {colTasks.map((task) => (
-                <BoardCard key={task.id} task={task} onToggle={onToggle} />
+                <BoardCard key={task.id} task={task} onChangeStatus={onChangeStatus} onClick={() => onClickTask(task)} />
               ))}
+              {colTasks.length === 0 && (
+                <div className="flex items-center justify-center h-20 text-xs text-muted-foreground/50">
+                  No tasks
+                </div>
+              )}
             </div>
-            <button className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border text-xs text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors w-full">
+
+            <button className="mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors w-full">
               <Plus className="h-3.5 w-3.5" /> Add task
             </button>
           </div>
@@ -205,9 +361,10 @@ function BoardView({ tasks, onToggle }: { tasks: Task[]; onToggle: (id: number) 
 
 // ─── Shared task list renderer ────────────────────────────────────────────────
 
-function TaskList({ tasks, onToggle, emptyMessage }: {
+function TaskList({ tasks, onChangeStatus, onClickTask, emptyMessage }: {
   tasks: Task[];
-  onToggle: (id: number) => void;
+  onChangeStatus: (id: number, status: TaskStatus) => void;
+  onClickTask: (task: Task) => void;
   emptyMessage?: string;
 }) {
   if (tasks.length === 0) {
@@ -223,13 +380,13 @@ function TaskList({ tasks, onToggle, emptyMessage }: {
       {tasks.map((task) => {
         const project = PROJECTS.find((p) => p.id === task.projectId);
         const assignee = USERS.find((u) => u.id === task.assigneeId);
-        const tags = TAGS.filter((t) => task.tagIds.includes(t.id));
         return (
           <TaskCard
-            key={task.id} task={task} tags={tags}
+            key={task.id} task={task}
             projectColor={project?.color ?? "#abb2bf"}
             assigneeName={assignee?.name ?? "?"} assigneeInitials={assignee?.initials ?? "?"} assigneeColor={assignee?.color ?? "#abb2bf"}
-            onToggle={onToggle}
+            onChangeStatus={onChangeStatus}
+            onClick={() => onClickTask(task)}
           />
         );
       })}
@@ -237,91 +394,128 @@ function TaskList({ tasks, onToggle, emptyMessage }: {
   );
 }
 
-// ─── Filter toolbar ───────────────────────────────────────────────────────────
+// ─── Filter popover ──────────────────────────────────────────────────────────
 
-function FilterBar({
-  search, onSearch,
-  statusFilter, onStatus,
-  viewMode, onViewMode,
+function FilterPopover({
   wsProjects, projectFilter, onProject,
   wsTags, tagFilters, onToggleTag,
-  rightSlot,
+  teamFilter, onTeamFilter, teams,
+  assigneeFilter, onAssignee, wsUsers,
   filterCount, onClear,
 }: {
-  search: string; onSearch: (v: string) => void;
-  statusFilter: TaskStatus | "ALL"; onStatus: (v: TaskStatus | "ALL") => void;
-  viewMode: "list" | "board"; onViewMode: (v: "list" | "board") => void;
   wsProjects: Project[]; projectFilter: string | null; onProject: (v: string | null) => void;
   wsTags: Tag[]; tagFilters: string[]; onToggleTag: (id: string) => void;
-  rightSlot?: React.ReactNode;
+  teamFilter: string | null; onTeamFilter: (v: string | null) => void;
+  teams: typeof TEAMS;
+  assigneeFilter: string | null; onAssignee: (v: string | null) => void;
+  wsUsers: typeof USERS;
   filterCount: number; onClear: () => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
-      {/* Search */}
-      <div className="relative flex-1 min-w-[160px] max-w-xs">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-        <input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search…"
-          className="w-full pl-8 pr-3 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
-      </div>
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-all",
+          filterCount > 0
+            ? "border-primary/30 bg-primary/5 text-primary"
+            : "border-border text-muted-foreground hover:bg-muted"
+        )}
+      >
+        <Search className="h-3.5 w-3.5" />
+        Filters
+        {filterCount > 0 && (
+          <span className="h-4 min-w-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center">
+            {filterCount}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-40 bg-popover border border-border rounded-xl shadow-xl p-4 min-w-[280px] space-y-4">
+          {/* Team */}
+          {teams.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Team</label>
+              <div className="relative">
+                <select value={teamFilter ?? ""} onChange={(e) => onTeamFilter(e.target.value || null)}
+                  className="w-full appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground cursor-pointer">
+                  <option value="">All teams</option>
+                  {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          )}
 
-      {/* Status */}
-      <div className="relative">
-        <select value={statusFilter} onChange={(e) => onStatus(e.target.value as any)}
-          className="appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer">
-          <option value="ALL">All statuses</option>
-          <option value="TODO">To Do</option>
-          <option value="IN_PROGRESS">In Progress</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="BACKLOG">Backlog</option>
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+          {/* Assignee */}
+          {wsUsers.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Assigned to</label>
+              <div className="relative">
+                <select value={assigneeFilter ?? ""} onChange={(e) => onAssignee(e.target.value || null)}
+                  className="w-full appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground cursor-pointer">
+                  <option value="">Anyone</option>
+                  {wsUsers.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+          )}
 
-      {/* Project */}
-      <div className="relative">
-        <select value={projectFilter ?? ""} onChange={(e) => onProject(e.target.value || null)}
-          className="appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer">
-          <option value="">All projects</option>
-          {wsProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+          {/* Project */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Project</label>
+            <div className="relative">
+              <select value={projectFilter ?? ""} onChange={(e) => onProject(e.target.value || null)}
+                className="w-full appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground cursor-pointer">
+                <option value="">All projects</option>
+                {wsProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            </div>
+          </div>
 
-      {/* Tag chips */}
-      {wsTags.slice(0, 4).map((tag) => {
-        const active = tagFilters.includes(tag.id);
-        return (
-          <button key={tag.id} onClick={() => onToggleTag(tag.id)}
-            className={cn("flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full border transition-all",
-              active ? "border-transparent font-medium" : "border-border text-muted-foreground hover:border-border/80")}
-            style={active ? { backgroundColor: `${tag.color}20`, color: tag.color, borderColor: `${tag.color}40` } : {}}>
-            <TagIcon className="h-2.5 w-2.5" />{tag.name}{active && <X className="h-2.5 w-2.5 ml-0.5" />}
-          </button>
-        );
-      })}
+          {/* Tags */}
+          {wsTags.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tags</label>
+              <div className="flex flex-wrap gap-1.5">
+                {wsTags.map((tag) => {
+                  const active = tagFilters.includes(tag.id);
+                  return (
+                    <button key={tag.id} onClick={() => onToggleTag(tag.id)}
+                      className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded-md border transition-all",
+                        active ? "border-transparent font-medium" : "border-border text-muted-foreground")}
+                      style={active ? { backgroundColor: `${tag.color}20`, color: tag.color, borderColor: `${tag.color}40` } : {}}>
+                      <TagIcon className="h-2.5 w-2.5" />{tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-      {filterCount > 0 && (
-        <button onClick={onClear} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <X className="h-3 w-3" /> Clear
-        </button>
-      )}
-
-      {/* Right side */}
-      <div className="ml-auto flex items-center gap-2">
-        {rightSlot}
-        {/* View toggle */}
-        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border gap-0.5">
-          <button onClick={() => onViewMode("list")}
-            className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-colors",
-              viewMode === "list" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="List view"><List className="h-3.5 w-3.5" /></button>
-          <button onClick={() => onViewMode("board")}
-            className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-colors",
-              viewMode === "board" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
-            title="Board view"><LayoutGrid className="h-3.5 w-3.5" /></button>
+          {/* Clear */}
+          {filterCount > 0 && (
+            <button onClick={() => { onClear(); setOpen(false); }}
+              className="w-full flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground py-1.5 transition-colors">
+              <X className="h-3 w-3" /> Clear all filters
+            </button>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -367,202 +561,172 @@ function ProjectCard({ project }: { project: Project }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-type TabType = "mine" | "team" | "projects";
+type ScopeTab = "active" | "backlog" | "archive";
+
+const SCOPE_TABS: { id: ScopeTab; label: string; statuses: TaskStatus[] }[] = [
+  { id: "backlog", label: "Backlog", statuses: ["BACKLOG"] },
+  { id: "active",  label: "Active",  statuses: ["TODO", "IN_PROGRESS", "IN_REVIEW", "BLOCKED"] },
+  { id: "archive", label: "Archive", statuses: ["COMPLETED"] },
+];
 
 export function TasksPage() {
   const { activeWorkspace, settings } = useApp();
 
-  // My tasks filters
-  const [mySearch, setMySearch] = useState("");
-  const [myStatus, setMyStatus] = useState<TaskStatus | "ALL">("ALL");
-  const [myProject, setMyProject] = useState<string | null>(null);
-  const [myTags, setMyTags] = useState<string[]>([]);
-
-  // Team tasks filters
-  const [teamSearch, setTeamSearch] = useState("");
-  const [teamStatus, setTeamStatus] = useState<TaskStatus | "ALL">("ALL");
-  const [teamProject, setTeamProject] = useState<string | null>(null);
-  const [teamTags, setTeamTags] = useState<string[]>([]);
-  const [teamFilter, setTeamFilter] = useState<string | null>(null);  // null = all teams
+  const [scope, setScope] = useState<ScopeTab>("active");
+  const [search, setSearch] = useState("");
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [mineOnly, setMineOnly] = useState(false);
-
-  // Shared state
-  const [tab, setTab] = useState<TabType>("mine");
-  // Default view from settings
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "board">(settings.defaultView);
-
   const [tasks, setTasks] = useState(TASKS);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   const wsProjects = PROJECTS.filter((p) => p.workspaceId === activeWorkspace.id);
   const wsTags = TAGS.filter((t) => t.workspaceId === activeWorkspace.id);
   const wsTasks = tasks.filter((t) => t.workspaceId === activeWorkspace.id);
-
-  // My teams
   const myTeamIds = TEAM_MEMBERS.filter((tm) => tm.userId === CURRENT_USER_ID).map((tm) => tm.teamId);
   const myTeams = TEAMS.filter((t) => myTeamIds.includes(t.id) && t.workspaceId === activeWorkspace.id);
 
-  const toggleTask = (id: number) =>
-    setTasks((prev) => prev.map((t) =>
-      t.id === id ? { ...t, status: t.status === "COMPLETED" ? "TODO" : "COMPLETED" } : t
-    ));
+  // All users who have tasks in this workspace (for assignee filter)
+  const wsUserIds = [...new Set(wsTasks.map((t) => t.assigneeId))];
+  const wsUsers = USERS.filter((u) => wsUserIds.includes(u.id));
 
-  // ── My Tasks ──────────────────────────────────────────────────────────────
-  const myTasks = useMemo(() =>
+  const changeTaskStatus = (id: number, status: TaskStatus) =>
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status } : t));
+
+  const scopeStatuses = SCOPE_TABS.find((s) => s.id === scope)!.statuses;
+
+  const filtered = useMemo(() =>
     wsTasks.filter((t) => {
-      if (t.assigneeId !== CURRENT_USER_ID) return false;
-      if (mySearch && !t.title.toLowerCase().includes(mySearch.toLowerCase())) return false;
-      if (myStatus !== "ALL" && t.status !== myStatus) return false;
-      if (myProject && t.projectId !== myProject) return false;
-      if (myTags.length > 0 && !myTags.every((tid) => t.tagIds.includes(tid))) return false;
-      return true;
-    }),
-    [wsTasks, mySearch, myStatus, myProject, myTags]
-  );
-
-  const myFilterCount = (myStatus !== "ALL" ? 1 : 0) + (myProject ? 1 : 0) + myTags.length;
-
-  // ── Team Tasks ────────────────────────────────────────────────────────────
-  const teamTasks = useMemo(() =>
-    wsTasks.filter((t) => {
-      if (!t.teamId) return false;
-      const relevantTeams = teamFilter ? [teamFilter] : myTeamIds;
-      if (!relevantTeams.includes(t.teamId)) return false;
+      if (!scopeStatuses.includes(t.status)) return false;
+      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (projectFilter && t.projectId !== projectFilter) return false;
+      if (tagFilters.length > 0 && !tagFilters.every((tid) => t.tagIds.includes(tid))) return false;
+      if (teamFilter && t.teamId !== teamFilter) return false;
+      if (assigneeFilter && t.assigneeId !== assigneeFilter) return false;
       if (mineOnly && t.assigneeId !== CURRENT_USER_ID) return false;
-      if (teamSearch && !t.title.toLowerCase().includes(teamSearch.toLowerCase())) return false;
-      if (teamStatus !== "ALL" && t.status !== teamStatus) return false;
-      if (teamProject && t.projectId !== teamProject) return false;
-      if (teamTags.length > 0 && !teamTags.every((tid) => t.tagIds.includes(tid))) return false;
+      if (unassignedOnly && t.assigneeId) return false;
       return true;
     }),
-    [wsTasks, teamFilter, myTeamIds, mineOnly, teamSearch, teamStatus, teamProject, teamTags]
+    [wsTasks, scopeStatuses, search, projectFilter, tagFilters, teamFilter, assigneeFilter, mineOnly, unassignedOnly]
   );
 
-  const teamFilterCount = (teamStatus !== "ALL" ? 1 : 0) + (teamProject ? 1 : 0) + teamTags.length + (mineOnly ? 1 : 0);
+  const filterCount = (projectFilter ? 1 : 0) + tagFilters.length + (teamFilter ? 1 : 0) + (assigneeFilter ? 1 : 0);
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  const myTasksAll = wsTasks.filter((t) => t.assigneeId === CURRENT_USER_ID);
-  const myInProgress = myTasksAll.filter((t) => t.status === "IN_PROGRESS").length;
-  const myTodo = myTasksAll.filter((t) => t.status === "TODO").length;
-  const myDone = myTasksAll.filter((t) => t.status === "COMPLETED").length;
+  // Counts for scope tabs
+  const activeCount = wsTasks.filter((t) => ["TODO", "IN_PROGRESS", "IN_REVIEW", "BLOCKED"].includes(t.status)).length;
+  const backlogCount = wsTasks.filter((t) => t.status === "BACKLOG").length;
+  const archiveCount = wsTasks.filter((t) => t.status === "COMPLETED").length;
+  const scopeCounts: Record<ScopeTab, number> = { active: activeCount, backlog: backlogCount, archive: archiveCount };
 
   return (
     <div className="p-6 max-w-[1200px] mx-auto">
-
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-foreground mb-1">Tasks</h1>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#61afef" }} />
-              {myInProgress} in progress
-            </span>
-            <span className="flex items-center gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#abb2bf" }} />
-              {myTodo} to do
-            </span>
-            <span className="flex items-center gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: "#98c379" }} />
-              {myDone} done
-            </span>
-          </div>
-        </div>
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-foreground">Tasks</h1>
         <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:opacity-90 transition-opacity">
           <Plus className="h-3.5 w-3.5" /> New Task
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-5 border-b border-border">
-        {[
-          { id: "mine",     label: "My Tasks",    icon: User },
-          { id: "team",     label: "Team Tasks",  icon: Users },
-          { id: "projects", label: "Projects",    icon: FolderOpen },
-        ].map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id as TabType)}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
-              tab === t.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
-            )}>
-            <t.icon className="h-3.5 w-3.5" />
-            {t.label}
-          </button>
-        ))}
+      {/* Row 1: scope tabs + view toggle */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border gap-0.5">
+          {SCOPE_TABS.map((s) => (
+            <button key={s.id} onClick={() => setScope(s.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                scope === s.id ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}>
+              {s.label}
+              <span className={cn(
+                "text-[11px] tabular-nums",
+                scope === s.id ? "text-foreground/60" : "text-muted-foreground/60"
+              )}>{scopeCounts[s.id]}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground tabular-nums">{filtered.length} tasks</span>
+          {scope === "active" && (
+            <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border gap-0.5">
+              <button onClick={() => setViewMode("list")}
+                className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+                  viewMode === "list" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                title="List view"><List className="h-3.5 w-3.5" /></button>
+              <button onClick={() => setViewMode("board")}
+                className={cn("h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+                  viewMode === "board" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
+                title="Board view"><LayoutGrid className="h-3.5 w-3.5" /></button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* ── MY TASKS ── */}
-      {tab === "mine" && (
-        <>
-          <FilterBar
-            search={mySearch} onSearch={setMySearch}
-            statusFilter={myStatus} onStatus={setMyStatus}
-            viewMode={viewMode} onViewMode={setViewMode}
-            wsProjects={wsProjects} projectFilter={myProject} onProject={setMyProject}
-            wsTags={wsTags} tagFilters={myTags} onToggleTag={(id) => setMyTags((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])}
-            filterCount={myFilterCount}
-            onClear={() => { setMyStatus("ALL"); setMyProject(null); setMyTags([]); setMySearch(""); }}
-            rightSlot={<span className="text-xs text-muted-foreground">{myTasks.length} tasks</span>}
-          />
-          {viewMode === "list"
-            ? <TaskList tasks={myTasks} onToggle={toggleTask} emptyMessage="No tasks assigned to you." />
-            : <BoardView tasks={myTasks} onToggle={toggleTask} />}
-        </>
-      )}
-
-      {/* ── TEAM TASKS ── */}
-      {tab === "team" && (
-        <>
-          {/* Team + mine-only filter row */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            {/* Team selector */}
-            <div className="relative">
-              <select value={teamFilter ?? ""}
-                onChange={(e) => setTeamFilter(e.target.value || null)}
-                className="appearance-none pl-3 pr-7 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer">
-                <option value="">All my teams</option>
-                {myTeams.map((team) => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            </div>
-
-            {/* Mine only toggle */}
-            <button
-              onClick={() => setMineOnly((v) => !v)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-all",
-                mineOnly ? "border-primary/40 bg-primary/8 text-primary" : "border-border text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <User className="h-3 w-3" />
-              Mine only
-            </button>
-          </div>
-
-          <FilterBar
-            search={teamSearch} onSearch={setTeamSearch}
-            statusFilter={teamStatus} onStatus={setTeamStatus}
-            viewMode={viewMode} onViewMode={setViewMode}
-            wsProjects={wsProjects} projectFilter={teamProject} onProject={setTeamProject}
-            wsTags={wsTags} tagFilters={teamTags} onToggleTag={(id) => setTeamTags((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])}
-            filterCount={teamFilterCount}
-            onClear={() => { setTeamStatus("ALL"); setTeamProject(null); setTeamTags([]); setTeamSearch(""); setMineOnly(false); }}
-            rightSlot={<span className="text-xs text-muted-foreground">{teamTasks.length} tasks</span>}
-          />
-
-          {viewMode === "list"
-            ? <TaskList tasks={teamTasks} onToggle={toggleTask}
-              emptyMessage={myTeams.length === 0 ? "You're not in any teams yet." : "No team tasks match your filters."} />
-            : <BoardView tasks={teamTasks} onToggle={toggleTask} />}
-        </>
-      )}
-
-      {/* ── PROJECTS ── */}
-      {tab === "projects" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {wsProjects.map((p) => <ProjectCard key={p.id} project={p} />)}
+      {/* Row 2: search + toggles + filters */}
+      <div className="flex items-center gap-2 mb-4">
+        {/* Search */}
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tasks..."
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40" />
         </div>
+
+        {/* Filter popover */}
+        {/* Quick toggles */}
+        <button
+          onClick={() => { setMineOnly((v) => !v); if (!mineOnly) setUnassignedOnly(false); }}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all",
+            mineOnly ? "border-primary/30 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:bg-muted"
+          )}
+        >
+          <User className="h-3.5 w-3.5" />
+          My tasks
+        </button>
+        <button
+          onClick={() => { setUnassignedOnly((v) => !v); if (!unassignedOnly) setMineOnly(false); }}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all",
+            unassignedOnly ? "border-chart-4/30 bg-chart-4/5 text-chart-4" : "border-border text-muted-foreground hover:bg-muted"
+          )}
+        >
+          <UserCircle className="h-3.5 w-3.5" />
+          Unassigned
+        </button>
+
+        {/* Filter popover */}
+        <FilterPopover
+          wsProjects={wsProjects} projectFilter={projectFilter} onProject={setProjectFilter}
+          wsTags={wsTags} tagFilters={tagFilters} onToggleTag={(id) => setTagFilters((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id])}
+          teamFilter={teamFilter} onTeamFilter={setTeamFilter} teams={myTeams}
+          assigneeFilter={assigneeFilter} onAssignee={setAssigneeFilter} wsUsers={wsUsers}
+          filterCount={filterCount}
+          onClear={() => { setProjectFilter(null); setTagFilters([]); setTeamFilter(null); setAssigneeFilter(null); }}
+        />
+      </div>
+
+      {/* Task list / board */}
+      {scope === "active" && viewMode === "board"
+        ? <BoardView tasks={filtered} onChangeStatus={changeTaskStatus} onClickTask={setSelectedTask} visibleStatuses={scopeStatuses} />
+        : <TaskList tasks={filtered} onChangeStatus={changeTaskStatus} onClickTask={setSelectedTask}
+            emptyMessage={scope === "backlog" ? "No tasks in backlog." : scope === "archive" ? "No completed tasks." : "No active tasks."} />}
+
+      {/* Task detail modal */}
+      {selectedTask && (
+        <TaskDetailModal
+          open={!!selectedTask}
+          onOpenChange={(o) => { if (!o) setSelectedTask(null); }}
+          task={selectedTask}
+          onChangeStatus={(s) => { changeTaskStatus(selectedTask.id, s); setSelectedTask({ ...selectedTask, status: s }); }}
+          onChangePriority={(p) => { setTasks((prev) => prev.map((t) => t.id === selectedTask.id ? { ...t, priority: p } : t)); setSelectedTask({ ...selectedTask, priority: p }); }}
+          onChangeType={(tp) => { setTasks((prev) => prev.map((t) => t.id === selectedTask.id ? { ...t, type: tp } : t)); setSelectedTask({ ...selectedTask, type: tp }); }}
+          onChangeTask={(updates) => { setTasks((prev) => prev.map((t) => t.id === selectedTask.id ? { ...t, ...updates } : t)); setSelectedTask({ ...selectedTask, ...updates }); }}
+        />
       )}
     </div>
   );

@@ -29,6 +29,8 @@ const COLS: { status: TaskStatus; label: string; color: string }[] = [
   { status: "BACKLOG",     label: "Backlog",     color: "#5c6370" },
   { status: "TODO",        label: "To Do",       color: "#abb2bf" },
   { status: "IN_PROGRESS", label: "In Progress", color: "#61afef" },
+  { status: "IN_REVIEW",   label: "In Review",   color: "#c678dd" },
+  { status: "BLOCKED",     label: "Blocked",     color: "#e06c75" },
   { status: "COMPLETED",   label: "Done",        color: "#98c379" },
 ];
 
@@ -160,6 +162,8 @@ const STATUS_OPTS: { value: TaskStatus; label: string; color: string }[] = [
   { value: "BACKLOG",     label: "Backlog",     color: "#5c6370" },
   { value: "TODO",        label: "To Do",       color: "#abb2bf" },
   { value: "IN_PROGRESS", label: "In Progress", color: "#61afef" },
+  { value: "IN_REVIEW",   label: "In Review",   color: "#c678dd" },
+  { value: "BLOCKED",     label: "Blocked",     color: "#e06c75" },
   { value: "COMPLETED",   label: "Done",        color: "#98c379" },
 ];
 
