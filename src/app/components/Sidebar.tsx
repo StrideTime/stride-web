@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard, Timer, Zap, Calendar, Target, BarChart2,
   Settings, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  Plus, Building2, Pause, Play, Square,
+  Plus, Building2, Pause, Play, Square, X,
   ListTodo, Gauge, TrendingUp, SlidersHorizontal, Check,
   ArrowLeft, LogIn, LogOut, Users, Banknote,
 } from "lucide-react";
@@ -25,6 +25,8 @@ import {
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 // ─── Nav constants ────────────────────────────────────────────────────────────
@@ -37,8 +39,7 @@ const MAIN_NAV = [
   { path: "/goals",    label: "Goals",     icon: Target },
   { path: "/stats",    label: "Stats",     icon: BarChart2 },
   null,
-  { path: "/focus",    label: "Focus",     icon: Zap },
-  { path: "/timer",    label: "Timer",     icon: Timer },
+  { path: "/timer",    label: "My Day",    icon: Timer },
 ];
 
 // Team sub-nav — Tasks always shown, Insights only for admins
@@ -354,9 +355,12 @@ function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, 
 }) {
   if (collapsed) {
     return (
-      <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar shadow-md overflow-hidden block hover:border-sidebar-primary/30 transition-colors">
-        <div className="h-1 w-full" style={{ backgroundColor: session.projectColor }} />
-        <div className="flex flex-col items-center gap-1.5 px-1.5 py-2">
+      <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar block hover:bg-sidebar-accent transition-colors">
+        <div className="flex flex-col items-center gap-1.5 px-1.5 py-2.5">
+          <div className="relative">
+            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
+            {running && <div className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ backgroundColor: session.projectColor }} />}
+          </div>
           <span className="text-xs font-mono tabular-nums text-foreground leading-none">{formatDuration(seconds)}</span>
           <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
             <button onClick={(e) => { e.preventDefault(); (running ? onPause : onResume)(); }}
@@ -374,13 +378,14 @@ function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, 
   }
 
   return (
-    <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar shadow-md overflow-hidden block hover:border-sidebar-primary/30 transition-colors">
-      {/* Color accent bar */}
-      <div className="h-1 w-full" style={{ backgroundColor: session.projectColor }} />
-
+    <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar block hover:bg-sidebar-accent/50 transition-colors">
       <div className="px-3 py-2.5">
         {/* Task title + controls */}
         <div className="flex items-center gap-2">
+          <div className="relative flex-shrink-0">
+            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
+            {running && <div className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ backgroundColor: session.projectColor }} />}
+          </div>
           <p className="text-sm text-foreground font-medium truncate flex-1">{session.taskTitle}</p>
           <div className="flex items-center gap-0.5 flex-shrink-0" onClick={(e) => e.preventDefault()}>
             <button onClick={(e) => { e.preventDefault(); (running ? onPause : onResume)(); }}
@@ -399,17 +404,11 @@ function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, 
         </div>
 
         {/* Project + duration */}
-        <div className="flex items-center gap-2 mt-1">
-          <div className="relative flex-shrink-0">
-            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
-            {running && <div className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ backgroundColor: session.projectColor }} />}
-          </div>
+        <div className="flex items-center gap-2 mt-1.5 pl-3">
           {session.projectName && (
-            <>
-              <span className="text-xs text-muted-foreground truncate">{session.projectName}</span>
-              <span className="text-xs text-muted-foreground/40">&middot;</span>
-            </>
+            <span className="text-xs text-muted-foreground truncate">{session.projectName}</span>
           )}
+          {session.projectName && <span className="text-xs text-muted-foreground/30">·</span>}
           <span className="text-xs font-mono tabular-nums text-muted-foreground">{formatDuration(seconds)}</span>
         </div>
       </div>
@@ -476,7 +475,7 @@ function ClockWidget({ collapsed, clockedIn, clockInTime, onClockIn, onClockOut 
 
 // ─── Main Sidebar ─────────────────────────────────────────────────────────────
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
   const {
     activeWorkspace, setActiveWorkspace, workspaceRole, myTeams, allWorkspaceTeams,
     settings, wsPermissions, clockedIn, clockInTime, clockIn, clockOut,
@@ -486,6 +485,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Auto-close mobile drawer on navigation
+  useEffect(() => {
+    onMobileClose?.();
+  }, [location.pathname]);
 
   const isSettingsPage = location.pathname.startsWith("/settings");
   const isOrg = activeWorkspace.type === "ORGANIZATION";
@@ -499,9 +503,22 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const settingsGroups = groupByCategory(visibleSettingsItems);
 
   return (
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onMobileClose}
+        />
+      )}
     <aside className={cn(
-      "flex flex-col h-full bg-sidebar border-r border-sidebar-border transition-all duration-200 ease-in-out relative flex-shrink-0",
-      collapsed ? "w-[56px]" : "w-[220px]"
+      "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-200 ease-in-out flex-shrink-0",
+      // Desktop: relative, in-flow, toggleable width
+      "lg:relative lg:h-full lg:translate-x-0",
+      collapsed ? "lg:w-[56px]" : "lg:w-[220px]",
+      // Mobile: fixed drawer, full height, fixed width
+      "fixed inset-y-0 left-0 z-50 h-full w-[280px]",
+      mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
     )}>
 
       {/* ── Top bar: workspace switcher or back button ── */}
@@ -617,32 +634,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               );
             })}
 
-            {/* Org admin section */}
-            {isOrgAdmin && (
-              <>
-                <SectionLabel label="Organization" collapsed={collapsed} />
-                {ORG_NAV.map((item) => (
-                  <NavLink
-                    key={item.subpath}
-                    to={`/org${item.subpath}`}
-                    end
-                    title={collapsed ? item.label : undefined}
-                    className={({ isActive }) => cn(
-                      "flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors",
-                      collapsed && "justify-center px-0",
-                      isActive ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                    )}
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-sidebar-primary" : "text-muted-foreground")} />
-                        {!collapsed && <span>{item.label}</span>}
-                      </>
-                    )}
-                  </NavLink>
-                ))}
-              </>
-            )}
           </>
         )}
       </nav>
@@ -711,16 +702,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       </div>
 
-      {/* Collapse toggle */}
+      {/* Collapse toggle — desktop only */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-16 h-6 w-6 rounded-full bg-sidebar border border-sidebar-border flex items-center justify-center hover:bg-sidebar-accent transition-colors z-10 shadow-sm"
+        className="hidden lg:flex absolute -right-3 top-16 h-6 w-6 rounded-full bg-sidebar border border-sidebar-border items-center justify-center hover:bg-sidebar-accent transition-colors z-10 shadow-sm"
         title={collapsed ? "Expand" : "Collapse"}
       >
         {collapsed
           ? <ChevronRight className="h-3 w-3 text-muted-foreground" />
           : <ChevronLeft className="h-3 w-3 text-muted-foreground" />}
       </button>
+
+      {/* Mobile close button */}
+      <button
+        onClick={onMobileClose}
+        className="lg:hidden absolute top-3 right-3 h-7 w-7 flex items-center justify-center rounded-md hover:bg-sidebar-accent transition-colors z-10"
+        aria-label="Close menu"
+      >
+        <X className="h-4 w-4 text-muted-foreground" />
+      </button>
     </aside>
+    </>
   );
 }

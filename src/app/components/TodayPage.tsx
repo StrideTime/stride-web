@@ -533,7 +533,7 @@ export function TodayPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
         <div>
           <h1 className="text-foreground mb-1">Good morning, Alex</h1>
           <p className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
@@ -560,7 +560,7 @@ export function TodayPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
         <StatCard icon={<Clock className="h-4 w-4" />}        label="Focus Time" value="1h 23m" sub="today"            color="#61afef" />
         <StatCard icon={<CheckCircle2 className="h-4 w-4" />} label="Tasks"      value={`${completedCount} / ${tasks.length}`} sub="completed" color="#98c379" />
         <StatCard icon={<Star className="h-4 w-4" />}         label="Points"     value="340"    sub="+85 this session" color="#e5c07b" />
@@ -568,7 +568,7 @@ export function TodayPage() {
       </div>
 
       {/* Main 2-column grid */}
-      <div className="flex gap-5 mb-5">
+      <div className="flex flex-col xl:flex-row gap-5 mb-5">
 
         {/* Tasks */}
         <div className="bg-card border border-border rounded-xl overflow-hidden flex-1 min-w-0">
@@ -604,9 +604,9 @@ export function TodayPage() {
           </div>
         </div>
 
-        {/* Schedule — Plan vs Actual: relative wrapper so the card doesn't affect flex row height */}
-        <div className="w-[320px] flex-shrink-0 relative">
-          <div className="absolute inset-0">
+        {/* Schedule — stacks below tasks on small screens, fixed beside on xl+ */}
+        <div className="h-[480px] xl:h-auto xl:w-[320px] xl:flex-shrink-0 xl:relative">
+          <div className="h-full xl:absolute xl:inset-0">
             <ScheduleCard />
           </div>
         </div>
