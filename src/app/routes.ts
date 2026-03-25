@@ -7,6 +7,7 @@ import { OrgDashboard } from "./components/OrgDashboard";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { GoalsPage } from "./components/GoalsPage";
 import { StatsPage } from "./components/stats/StatsPage";
+import { TasksPage } from "./components/TasksPage";
 import { PlaceholderPage } from "./components/PlaceholderPage";
 
 export const router = createBrowserRouter([
@@ -15,6 +16,7 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true,                      Component: TodayPage },
+      { path: "tasks",                    Component: TasksPage },
       { path: "focus",                    Component: PlaceholderPage },
       { path: "timer",                    Component: PlaceholderPage },
       { path: "calendar",                 Component: PlaceholderPage },
@@ -25,8 +27,9 @@ export const router = createBrowserRouter([
       { path: "team/:teamId",             Component: TeamPage },
       // Org routes
       { path: "org/members",              Component: OrgDashboard },
-      // Settings
+      // Settings — section from URL param
       { path: "settings",                 Component: SettingsPage },
+      { path: "settings/:section",        Component: SettingsPage },
     ],
   },
 ]);

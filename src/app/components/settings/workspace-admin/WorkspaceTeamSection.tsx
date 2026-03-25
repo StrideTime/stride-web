@@ -9,7 +9,7 @@ import {
   TEAMS, TEAM_MEMBERS, USERS, WORKSPACE_MEMBERSHIPS,
   type Team, type TeamRole, type WorkspaceRole,
 } from "../../../data/mockData";
-import { CreateTeamModal, type NewTeamData } from "./CreateTeamModal";
+import { TeamModal, type TeamFormData } from "./CreateTeamModal";
 import { InviteMemberModal, type InviteData, type PayType, type ClockInBehavior } from "./InviteMemberModal";
 import { PurchaseSeatsModal } from "./PurchaseSeatsModal";
 import { EditMemberModal, type MemberEditData } from "../shared/EditMemberModal";
@@ -77,10 +77,11 @@ export function WorkspaceTeamSection() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<LocalMember | null>(null);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingTeamMember, setEditingTeamMember] = useState<{ tm: LocalTeamMember; teamName: string } | null>(null);
 
   // ── Handlers ──
-  function handleCreateTeam(data: NewTeamData) {
+  function handleCreateTeam(data: TeamFormData) {
     const newTeam: Team = {
       id: `t-${Date.now()}`,
       workspaceId: activeWorkspace.id,
@@ -230,7 +231,7 @@ export function WorkspaceTeamSection() {
                       : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
                   </button>
                   <div className="flex items-center gap-1 ml-2">
-                    <button className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors">
+                    <button onClick={() => setEditingTeam(team)} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted transition-colors">
                       <Edit2 className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
                     <button
@@ -305,6 +306,12 @@ export function WorkspaceTeamSection() {
           <div className="bg-card border border-border rounded-xl overflow-hidden divide-y divide-border">
             {localMembers.map((member) => {
               const isEditable = isOwner || (workspaceRole === "ADMIN" && member.role !== "OWNER");
+              const user = USERS.find((u) => u.id === member.userId);
+              const memberTeams = localTeamMembers
+                .filter((tm) => tm.userId === member.userId)
+                .map((tm) => localTeams.find((t) => t.id === tm.teamId))
+                .filter(Boolean) as Team[];
+              const memberTeamRoles = localTeamMembers.filter((tm) => tm.userId === member.userId);
               return (
                 <div key={member.userId} className="flex items-center gap-4 px-5 py-3 group">
                   <button
@@ -325,22 +332,34 @@ export function WorkspaceTeamSection() {
                         {member.role === "OWNER" && <Shield className="h-3.5 w-3.5 text-chart-3" />}
                         {member.role === "ADMIN" && <Shield className="h-3.5 w-3.5 text-chart-4" />}
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">{member.email}</span>
-                        {wsPermissions.trackCompensation && (
-                          <>
-                            <span className="text-[10px] text-muted-foreground/60">|</span>
-                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                              <Banknote className="h-2.5 w-2.5" />
-                              {member.payType === "HOURLY" ? `Hourly${member.rate ? ` ($${member.rate}/hr)` : ""}` : "Salary"}
-                            </span>
-                          </>
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {user?.jobTitle && (
+                          <span className="text-xs text-muted-foreground">{user.jobTitle}</span>
+                        )}
+                        {user?.jobTitle && memberTeams.length > 0 && (
+                          <span className="text-xs text-muted-foreground/40">&middot;</span>
+                        )}
+                        {memberTeams.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {memberTeams.map((t) => {
+                              const tmRole = memberTeamRoles.find((r) => r.teamId === t.id);
+                              return (
+                                <span key={t.id} className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                                  <t.Icon className="h-2.5 w-2.5" style={{ color: t.color }} />
+                                  {t.name}
+                                  {tmRole?.role === "ADMIN" && (
+                                    <Shield className="h-2 w-2 text-chart-4" />
+                                  )}
+                                </span>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
                     </div>
                   </button>
                   <span className={cn(
-                    "text-[11px] px-2 py-0.5 rounded-full font-medium",
+                    "text-[11px] px-2 py-0.5 rounded-full font-medium flex-shrink-0",
                     member.role === "OWNER" ? "bg-chart-3/10 text-chart-3"
                       : member.role === "ADMIN" ? "bg-chart-4/10 text-chart-4"
                         : "bg-muted text-muted-foreground"
@@ -355,12 +374,26 @@ export function WorkspaceTeamSection() {
       )}
 
       {/* ── Modals ── */}
-      <CreateTeamModal
+      <TeamModal
         open={createTeamOpen}
         onOpenChange={setCreateTeamOpen}
-        onCreateTeam={handleCreateTeam}
+        onSave={handleCreateTeam}
         workspaceName={activeWorkspace.name}
       />
+      {editingTeam && (
+        <TeamModal
+          open={!!editingTeam}
+          onOpenChange={(o) => { if (!o) setEditingTeam(null); }}
+          editTeam={editingTeam}
+          onSave={(data) => {
+            setLocalTeams((prev) => prev.map((t) =>
+              t.id === editingTeam.id ? { ...t, name: data.name, description: data.description, color: data.color, Icon: data.Icon } : t
+            ));
+            setEditingTeam(null);
+          }}
+          workspaceName={activeWorkspace.name}
+        />
+      )}
       <InviteMemberModal
         open={inviteOpen}
         onOpenChange={setInviteOpen}
@@ -378,7 +411,16 @@ export function WorkspaceTeamSection() {
       />
 
       {/* Edit member modal */}
-      {editingMember && (
+      {editingMember && (() => {
+        const editUser = USERS.find((u) => u.id === editingMember.userId);
+        const editMemberTeams = localTeamMembers
+          .filter((tm) => tm.userId === editingMember.userId)
+          .map((tm) => {
+            const t = localTeams.find((team) => team.id === tm.teamId);
+            return t ? { name: t.name, role: tm.role, color: t.color } : null;
+          })
+          .filter(Boolean) as { name: string; role: string; color: string }[];
+        return (
         <EditMemberModal
           open={!!editingMember}
           onOpenChange={(o) => { if (!o) setEditingMember(null); }}
@@ -387,6 +429,8 @@ export function WorkspaceTeamSection() {
           memberEmail={editingMember.email}
           memberInitials={editingMember.initials}
           memberColor={editingMember.color}
+          memberJobTitle={editUser?.jobTitle}
+          memberTeams={editMemberTeams}
           context="workspace"
           workspaceRole={editingMember.role}
           payType={editingMember.payType}
@@ -407,12 +451,20 @@ export function WorkspaceTeamSection() {
             setEditingMember(null);
           }}
         />
-      )}
+        );
+      })()}
 
       {/* Edit team member modal (from expanded team view) */}
       {editingTeamMember && (() => {
         const user = USERS.find((u) => u.id === editingTeamMember.tm.userId);
         if (!user) return null;
+        const tmTeams = localTeamMembers
+          .filter((tm) => tm.userId === editingTeamMember.tm.userId)
+          .map((tm) => {
+            const t = localTeams.find((team) => team.id === tm.teamId);
+            return t ? { name: t.name, role: tm.role, color: t.color } : null;
+          })
+          .filter(Boolean) as { name: string; role: string; color: string }[];
         return (
           <EditMemberModal
             open={!!editingTeamMember}
@@ -422,6 +474,8 @@ export function WorkspaceTeamSection() {
             memberEmail={user.email}
             memberInitials={user.initials}
             memberColor={user.color}
+            memberJobTitle={user.jobTitle}
+            memberTeams={tmTeams}
             context="team"
             teamName={editingTeamMember.teamName}
             teamRole={editingTeamMember.tm.role}

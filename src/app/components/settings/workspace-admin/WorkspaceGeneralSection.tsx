@@ -1,13 +1,15 @@
 import { useState } from "react";
 import {
-  Check, Plus, X, Lock, Banknote,
-  GripVertical, Circle, Clock, Zap, Ban, Moon, Eye, EyeOff, Users,
+  Check, Plus, X, Lock, Banknote, ChevronDown,
+  GripVertical, Circle, Clock, Ban, Moon, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Section } from "../shared/Section";
 import { Row } from "../shared/Row";
 import { Toggle } from "../shared/Toggle";
 import { SelectInput } from "../shared/SelectInput";
+import { ColorPickerPopover } from "../shared/ColorPickerPopover";
+import { IconPickerPopover, STATUS_ICONS, getIconByKey } from "../shared/IconPickerPopover";
 import { useApp } from "../../../context/AppContext";
 import { cn } from "../../ui/utils";
 
@@ -22,17 +24,6 @@ interface StatusItem {
   enabled: boolean;
 }
 
-const STATUS_ICONS: { key: string; Icon: LucideIcon }[] = [
-  { key: "circle",   Icon: Circle },
-  { key: "check",    Icon: Check },
-  { key: "clock",    Icon: Clock },
-  { key: "zap",      Icon: Zap },
-  { key: "ban",      Icon: Ban },
-  { key: "moon",     Icon: Moon },
-  { key: "eye",      Icon: Eye },
-  { key: "eye-off",  Icon: EyeOff },
-];
-
 const STATUS_COLORS = [
   "#22c55e", "#eab308", "#ef4444", "#3b82f6", "#a855f7",
   "#ec4899", "#f97316", "#14b8a6", "#9ca3af", "#64748b",
@@ -46,68 +37,16 @@ const DEFAULT_STATUSES: StatusItem[] = [
   { id: "s4", name: "Offline", iconKey: "moon",   Icon: Moon,  color: "#9ca3af", enabled: true },
 ];
 
-// ─── Color picker popover ────────────────────────────────────────────────────
-
-function ColorPicker({ value, onChange, onClose }: {
-  value: string; onChange: (c: string) => void; onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div ref={ref} className="absolute top-8 left-0 z-50 bg-popover border border-border rounded-xl shadow-xl p-3 w-[172px]">
-        <div className="grid grid-cols-6 gap-1.5">
-          {STATUS_COLORS.map((c) => (
-            <button key={c} onClick={() => { onChange(c); onClose(); }}
-              className="h-6 w-6 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
-              style={{ backgroundColor: c }}>
-              {c === value && <Check className="h-3 w-3 text-white drop-shadow" />}
-            </button>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ─── Icon picker popover ─────────────────────────────────────────────────────
-
-function IconPicker({ value, color, onChange, onClose }: {
-  value: string; color: string; onChange: (key: string, Icon: LucideIcon) => void; onClose: () => void;
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute top-8 left-0 z-50 bg-popover border border-border rounded-xl shadow-xl p-3 w-[172px]">
-        <div className="grid grid-cols-4 gap-1.5">
-          {STATUS_ICONS.map((opt) => (
-            <button key={opt.key} onClick={() => { onChange(opt.key, opt.Icon); onClose(); }}
-              className={cn(
-                "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                value === opt.key
-                  ? "ring-2 ring-primary/50 bg-primary/10"
-                  : "bg-muted hover:bg-muted/80"
-              )}>
-              <opt.Icon className="h-3.5 w-3.5" style={{ color: value === opt.key ? color : undefined }} />
-            </button>
-          ))}
-        </div>
-      </div>
-    </>
-  );
-}
-
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export function WorkspaceGeneralSection() {
   const { activeWorkspace, settings, updateSettings, wsPermissions, updateWsPermissions } = useApp();
   const [wsName, setWsName] = useState(activeWorkspace.name);
   const [wsDescription, setWsDescription] = useState("Main workspace for professional tasks");
+  const [wsColor, setWsColor] = useState(activeWorkspace.color);
   const [timezone, setTimezone] = useState("America/New_York");
   const [statuses, setStatuses] = useState<StatusItem[]>(DEFAULT_STATUSES);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
-  const [iconPickerOpen, setIconPickerOpen] = useState<string | null>(null);
   const [allowCustomStatuses, setAllowCustomStatuses] = useState(false);
 
   // Drag state
@@ -157,10 +96,13 @@ export function WorkspaceGeneralSection() {
             className="text-sm bg-muted border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 w-64" />
         </Row>
         <Row label="Color">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-full border border-border" style={{ backgroundColor: activeWorkspace.color }} />
-            <span className="text-xs text-muted-foreground">{activeWorkspace.color}</span>
-          </div>
+          <ColorPickerPopover value={wsColor} onChange={setWsColor}>
+            <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border hover:border-muted-foreground/30 transition-colors">
+              <div className="h-4 w-4 rounded-full" style={{ backgroundColor: wsColor }} />
+              <span className="text-xs text-foreground">Change</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </ColorPickerPopover>
         </Row>
       </Section>
 
@@ -194,7 +136,7 @@ export function WorkspaceGeneralSection() {
                   updateWsPermissions({ workDays: days });
                 }}
                 className={cn(
-                  "h-7 w-7 rounded-md text-[10px] font-medium transition-all",
+                  "h-8 w-8 rounded-md text-xs font-medium transition-all",
                   wsPermissions.workDays.includes(day)
                     ? "bg-primary/10 text-primary border border-primary/30"
                     : "bg-muted text-muted-foreground border border-transparent hover:border-border"
@@ -264,22 +206,16 @@ export function WorkspaceGeneralSection() {
               </div>
 
               {/* Icon picker */}
-              <div className="relative flex-shrink-0">
-                <button
-                  onClick={() => setIconPickerOpen(iconPickerOpen === status.id ? null : status.id)}
-                  className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted hover:bg-muted/80 transition-colors"
-                >
+              <IconPickerPopover
+                value={status.iconKey}
+                color={status.color}
+                icons={STATUS_ICONS}
+                onChange={(key, Icon) => setStatuses(statuses.map((s) => s.id === status.id ? { ...s, iconKey: key, Icon } : s))}
+              >
+                <button className="h-7 w-7 rounded-lg flex items-center justify-center bg-muted hover:bg-muted/80 transition-colors flex-shrink-0">
                   <status.Icon className="h-3.5 w-3.5" style={{ color: status.color }} />
                 </button>
-                {iconPickerOpen === status.id && (
-                  <IconPicker
-                    value={status.iconKey}
-                    color={status.color}
-                    onChange={(key, Icon) => setStatuses(statuses.map((s) => s.id === status.id ? { ...s, iconKey: key, Icon } : s))}
-                    onClose={() => setIconPickerOpen(null)}
-                  />
-                )}
-              </div>
+              </IconPickerPopover>
 
               {/* Name (editable) */}
               {editingId === status.id ? (
@@ -295,20 +231,11 @@ export function WorkspaceGeneralSection() {
               )}
 
               {/* Color picker */}
-              <div className="relative flex-shrink-0">
-                <button
-                  onClick={() => setColorPickerOpen(colorPickerOpen === status.id ? null : status.id)}
-                  className="h-5 w-5 rounded-full ring-2 ring-transparent hover:ring-offset-2 hover:ring-border transition-all"
-                  style={{ backgroundColor: status.color }}
-                />
-                {colorPickerOpen === status.id && (
-                  <ColorPicker
-                    value={status.color}
-                    onChange={(c) => setStatuses(statuses.map((s) => s.id === status.id ? { ...s, color: c } : s))}
-                    onClose={() => setColorPickerOpen(null)}
-                  />
-                )}
-              </div>
+              <ColorPickerPopover
+                value={status.color}
+                colors={STATUS_COLORS}
+                onChange={(c) => setStatuses(statuses.map((s) => s.id === status.id ? { ...s, color: c } : s))}
+              />
 
               {/* Delete */}
               {statuses.length > 2 && (
@@ -429,43 +356,58 @@ export function WorkspaceGeneralSection() {
               )}
             </div>
 
-            {/* Overtime policy */}
+            {/* Overtime */}
             <div className="border-t border-border pt-4">
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">Overtime policy</label>
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                {([
-                  { value: "none" as const, label: "No overtime", desc: "All hours treated equally" },
-                  { value: "after_daily" as const, label: "After daily limit", desc: "OT after X hours/day" },
-                  { value: "after_weekly" as const, label: "After weekly limit", desc: "OT after X hours/week" },
-                  { value: "after_period" as const, label: "After period limit", desc: "OT after X hours/period" },
-                ]).map((p) => (
-                  <button key={p.value} onClick={() => updateWsPermissions({ overtimePolicy: p.value })}
-                    className={cn("px-3 py-2 rounded-lg border text-left transition-all",
-                      wsPermissions.overtimePolicy === p.value ? "border-primary/40 bg-primary/5" : "border-border hover:border-muted-foreground/30")}>
-                    <p className={cn("text-xs font-medium", wsPermissions.overtimePolicy === p.value ? "text-primary" : "text-foreground")}>{p.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{p.desc}</p>
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm text-foreground">Overtime tracking</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Automatically flag hours that exceed a threshold.</p>
+                </div>
+                <Toggle
+                  value={wsPermissions.overtimePolicy !== "none"}
+                  onChange={(v) => updateWsPermissions({ overtimePolicy: v ? "after_weekly" : "none" })}
+                />
               </div>
+
               {wsPermissions.overtimePolicy !== "none" && (
-                <div className="flex items-center gap-3">
+                <div className="space-y-3 rounded-lg bg-muted/20 border border-border p-4">
+                  {/* Trigger */}
                   <div>
-                    <label className="text-[10px] font-medium text-muted-foreground mb-1 block">Threshold</label>
-                    <div className="flex items-center gap-1">
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Overtime starts after</label>
+                    <div className="flex items-center gap-2">
                       <input type="number" value={wsPermissions.overtimeThreshold}
                         onChange={(e) => updateWsPermissions({ overtimeThreshold: parseInt(e.target.value) || 40 })}
-                        className="text-sm bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 w-16 text-center" />
-                      <span className="text-xs text-muted-foreground">hours</span>
+                        className="text-sm bg-card border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 w-20 text-center" />
+                      <span className="text-xs text-muted-foreground">hours per</span>
+                      <SelectInput
+                        value={wsPermissions.overtimePolicy}
+                        onChange={(v) => updateWsPermissions({ overtimePolicy: v as any })}
+                        options={[
+                          { value: "after_daily", label: "day" },
+                          { value: "after_weekly", label: "week" },
+                          { value: "after_period", label: "pay period" },
+                        ]}
+                      />
                     </div>
                   </div>
+
+                  {/* Rate */}
                   <div>
-                    <label className="text-[10px] font-medium text-muted-foreground mb-1 block">OT rate</label>
-                    <div className="flex items-center gap-1">
+                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Overtime pay rate</label>
+                    <div className="flex items-center gap-2">
                       <input type="number" step="0.1" value={wsPermissions.overtimeRate}
                         onChange={(e) => updateWsPermissions({ overtimeRate: parseFloat(e.target.value) || 1.5 })}
-                        className="text-sm bg-muted border border-border rounded-lg px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 w-16 text-center" />
-                      <span className="text-xs text-muted-foreground">x</span>
+                        className="text-sm bg-card border border-border rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 w-20 text-center" />
+                      <span className="text-xs text-muted-foreground">x regular rate</span>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      {wsPermissions.overtimePolicy === "after_daily"
+                        ? `Hours beyond ${wsPermissions.overtimeThreshold} in a single day are paid at ${wsPermissions.overtimeRate}x.`
+                        : wsPermissions.overtimePolicy === "after_weekly"
+                          ? `Hours beyond ${wsPermissions.overtimeThreshold} in a week are paid at ${wsPermissions.overtimeRate}x.`
+                          : `Hours beyond ${wsPermissions.overtimeThreshold} in a pay period are paid at ${wsPermissions.overtimeRate}x.`
+                      }
+                    </p>
                   </div>
                 </div>
               )}

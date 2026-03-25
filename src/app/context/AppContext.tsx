@@ -74,13 +74,27 @@ export interface WorkspacePermissions {
   trackCompensation: boolean;
   payFrequency: PayFrequency;
   payDay: string;
-  payCustomDays?: number; // for "custom" frequency
+  payCustomDays?: number;
   overtimePolicy: OvertimePolicy;
-  overtimeThreshold: number; // hours after which OT kicks in
-  overtimeRate: number; // multiplier, e.g. 1.5
-  workDays: string[]; // e.g. ["monday","tuesday","wednesday","thursday","friday"]
+  overtimeThreshold: number;
+  overtimeRate: number;
+  workDays: string[];
   defaultWorkStart: string;
   defaultWorkEnd: string;
+  // Stats & tracking
+  trackTimeEntries: boolean;
+  trackBreaks: boolean;
+  trackFocusSessions: boolean;
+  trackTaskCompletion: boolean;
+  trackGoalProgress: boolean;
+  trackEstimateAccuracy: boolean;
+  trackBurnoutRisk: boolean;
+  enableLeaderboard: boolean;
+  enableAchievements: boolean;
+  statsVisibility: "private" | "team_leads" | "everyone";
+  statsRetentionDays: number; // 0 = forever
+  requireDailyLog: boolean;
+  enableWeeklyDigest: boolean;
 }
 
 const DEFAULT_WS_PERMISSIONS: WorkspacePermissions = {
@@ -94,6 +108,20 @@ const DEFAULT_WS_PERMISSIONS: WorkspacePermissions = {
   workDays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
   defaultWorkStart: "09:00",
   defaultWorkEnd: "17:00",
+  // Stats & tracking defaults
+  trackTimeEntries: true,
+  trackBreaks: true,
+  trackFocusSessions: true,
+  trackTaskCompletion: true,
+  trackGoalProgress: true,
+  trackEstimateAccuracy: false,
+  trackBurnoutRisk: true,
+  enableLeaderboard: false,
+  enableAchievements: true,
+  statsVisibility: "team_leads",
+  statsRetentionDays: 90,
+  requireDailyLog: false,
+  enableWeeklyDigest: true,
 };
 
 // ─── Active session ───────────────────────────────────────────────────────────

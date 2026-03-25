@@ -2,6 +2,7 @@ import { Bell, Mail } from "lucide-react";
 import { Section } from "../shared/Section";
 import { Row } from "../shared/Row";
 import { Toggle } from "../shared/Toggle";
+import { ApplyToAllBanner } from "../shared/ApplyToAllBanner";
 import { useApp } from "../../../context/AppContext";
 import { cn } from "../../ui/utils";
 import type { NotificationPref } from "../../../context/AppContext";
@@ -18,7 +19,7 @@ function ChannelPill({ label, icon: Icon, active, onChange }: {
     <button
       onClick={() => onChange(!active)}
       className={cn(
-        "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border",
+        "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border",
         active
           ? "bg-primary/8 border-primary/30 text-primary"
           : "bg-transparent border-border text-muted-foreground/50 hover:text-muted-foreground hover:border-muted-foreground/30"
@@ -57,47 +58,77 @@ function NotifItem({ label, description, pref, onChange }: {
 // ─── Notifications section ──────────────────────────────────────────────────
 
 export function NotificationsSection() {
-  const { settings, updateSettings } = useApp();
+  const { settings, updateSettings, activeWorkspace } = useApp();
+  const isOrg = activeWorkspace.type === "ORGANIZATION";
   const notif = settings.notifications;
   const updateNotif = (key: keyof typeof notif, val: any) =>
     updateSettings({ notifications: { ...notif, [key]: val } });
 
-  const groups = [
-    { title: "Activity", rows: [
-      { label: "Task completed",        desc: "When one of your tasks is marked complete.",         key: "taskCompleted" },
-      { label: "Task assigned to you",  desc: "When a team member assigns a task to you.",           key: "taskAssigned" },
-      { label: "Mention in a comment",  desc: "When someone @-mentions you on a task.",             key: "mention" },
-    ]},
-    { title: "Team", rows: [
-      { label: "Team task assigned",    desc: "When any task is assigned within your team.",         key: "teamTaskAssigned" },
-      { label: "Deadline approaching",  desc: "24 hours before a task or project deadline.",         key: "deadlineApproaching" },
-    ]},
-    { title: "Reports & digests", rows: [
-      { label: "Weekly progress digest",desc: "Summary of tasks, hours, and goal progress each Monday.", key: "weeklyDigest" },
-      { label: "Goal milestone reached",desc: "When you hit a significant percentage on a goal.",   key: "goalMilestone" },
-    ]},
-    { title: "Reminders", rows: [
-      { label: "Daily planning reminder",desc: "Morning prompt to review and plan your day.",        key: "dailyPlanning" },
-      { label: "Timer running over 3h", desc: "Alert when a session has been running unusually long.", key: "timerOverrun" },
-      { label: "Upcoming deadlines (24h)",desc: "Reminder the day before a task is due.",            key: "upcomingDeadline" },
-    ]},
-  ];
-
   return (
-    <>
-      {groups.map((group) => (
-        <div key={group.title} className="bg-card border border-border rounded-xl overflow-hidden mb-4">
+    <div className="space-y-5">
+      {/* Activity */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Activity</h2>
+        </div>
+        <div className="divide-y divide-border">
+          <NotifItem label="Task completed" desc="When one of your tasks is marked complete."
+            pref={notif.taskCompleted} onChange={(v) => updateNotif("taskCompleted", v)} />
+          <NotifItem label="Task assigned to you" desc="When a team member assigns a task to you."
+            pref={notif.taskAssigned} onChange={(v) => updateNotif("taskAssigned", v)} />
+          <NotifItem label="Mention in a comment" desc="When someone @-mentions you on a task."
+            pref={notif.mention} onChange={(v) => updateNotif("mention", v)} />
+        </div>
+        <ApplyToAllBanner sectionLabel="Activity" compact />
+      </div>
+
+      {/* Reminders */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reminders</h2>
+        </div>
+        <div className="divide-y divide-border">
+          <NotifItem label="Daily planning reminder" desc="Morning prompt to review and plan your day."
+            pref={notif.dailyPlanning} onChange={(v) => updateNotif("dailyPlanning", v)} />
+          <NotifItem label="Timer running over 3h" desc="Alert when a session has been running unusually long."
+            pref={notif.timerOverrun} onChange={(v) => updateNotif("timerOverrun", v)} />
+          <NotifItem label="Upcoming deadlines" desc="Reminder the day before a task is due."
+            pref={notif.upcomingDeadline} onChange={(v) => updateNotif("upcomingDeadline", v)} />
+        </div>
+        <ApplyToAllBanner sectionLabel="Reminders" compact />
+      </div>
+
+      {/* Team & Organization — only for org workspaces */}
+      {isOrg && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-border">
-            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">{group.title}</h2>
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team & Organization</h2>
           </div>
           <div className="divide-y divide-border">
-            {group.rows.map((row) => (
-              <NotifItem key={row.key} label={row.label} description={row.desc}
-                pref={(notif as any)[row.key]} onChange={(v) => updateNotif(row.key as any, v)} />
-            ))}
+            <NotifItem label="Team task assigned" desc="When any task is assigned within your team."
+              pref={notif.teamTaskAssigned} onChange={(v) => updateNotif("teamTaskAssigned", v)} />
+            <NotifItem label="Deadline approaching" desc="24 hours before a task or project deadline."
+              pref={notif.deadlineApproaching} onChange={(v) => updateNotif("deadlineApproaching", v)} />
+            <NotifItem label="Goal milestone reached" desc="When you hit a significant percentage on a goal."
+              pref={notif.goalMilestone} onChange={(v) => updateNotif("goalMilestone", v)} />
           </div>
+          <ApplyToAllBanner sectionLabel="Team" compact />
         </div>
-      ))}
+      )}
+
+      {/* Reports & Digests */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reports & Digests</h2>
+        </div>
+        <div className="divide-y divide-border">
+          <NotifItem label="Weekly progress digest" desc="Summary of tasks, hours, and goal progress each Monday."
+            pref={notif.weeklyDigest} onChange={(v) => updateNotif("weeklyDigest", v)} />
+        </div>
+        <ApplyToAllBanner sectionLabel="Digests" compact />
+      </div>
+
+      {/* Quiet hours */}
       <Section title="Quiet hours" description="Suppress all in-app notifications during these hours.">
         <Row label="Enable quiet hours">
           <Toggle value={notif.quietHoursEnabled} onChange={(v) => updateNotif("quietHoursEnabled", v)} />
@@ -115,6 +146,6 @@ export function NotificationsSection() {
           </>
         )}
       </Section>
-    </>
+    </div>
   );
 }

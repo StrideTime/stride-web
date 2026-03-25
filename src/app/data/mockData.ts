@@ -86,6 +86,7 @@ export interface User {
   initials: string;
   email: string;
   color: string;
+  jobTitle?: string;
 }
 
 /** Detailed member stats used in team admin views */
@@ -108,13 +109,13 @@ export interface TeamMemberStats {
 export const CURRENT_USER_ID = "u1";
 
 export const USERS: User[] = [
-  { id: "u1", name: "Alex Chen",      initials: "AC", email: "alex@acme.com",   color: "#61afef" },
-  { id: "u2", name: "Maya Rodriguez", initials: "MR", email: "maya@acme.com",   color: "#c678dd" },
-  { id: "u3", name: "Liam Park",      initials: "LP", email: "liam@acme.com",   color: "#98c379" },
-  { id: "u4", name: "Priya Nair",     initials: "PN", email: "priya@acme.com",  color: "#e5c07b" },
-  { id: "u5", name: "Jordan Kim",     initials: "JK", email: "jordan@acme.com", color: "#e06c75" },
-  { id: "u6", name: "Sam Torres",     initials: "ST", email: "sam@acme.com",    color: "#56b6c2" },
-  { id: "u7", name: "Nina Walsh",     initials: "NW", email: "nina@acme.com",   color: "#d19a66" },
+  { id: "u1", name: "Alex Chen",      initials: "AC", email: "alex@acme.com",   color: "#61afef", jobTitle: "Engineering Lead" },
+  { id: "u2", name: "Maya Rodriguez", initials: "MR", email: "maya@acme.com",   color: "#c678dd", jobTitle: "Product Designer" },
+  { id: "u3", name: "Liam Park",      initials: "LP", email: "liam@acme.com",   color: "#98c379", jobTitle: "Frontend Developer" },
+  { id: "u4", name: "Priya Nair",     initials: "PN", email: "priya@acme.com",  color: "#e5c07b", jobTitle: "Backend Developer" },
+  { id: "u5", name: "Jordan Kim",     initials: "JK", email: "jordan@acme.com", color: "#e06c75", jobTitle: "QA Engineer" },
+  { id: "u6", name: "Sam Torres",     initials: "ST", email: "sam@acme.com",    color: "#56b6c2", jobTitle: "DevOps Engineer" },
+  { id: "u7", name: "Nina Walsh",     initials: "NW", email: "nina@acme.com",   color: "#d19a66", jobTitle: "Project Manager" },
 ];
 
 // ─── Workspaces ───────────────────────────────────────────────────────────────

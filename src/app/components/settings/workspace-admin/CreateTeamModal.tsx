@@ -1,87 +1,124 @@
-import { useState } from "react";
-import {
-  Settings, Palette, Megaphone, Package, Code, Rocket, Lightbulb,
-  Users, Zap, Target, BarChart2, Globe, Shield, Briefcase, Heart, Wrench,
-  Check,
-} from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ChevronDown, X, Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { cn } from "../../ui/utils";
 import {
   Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription,
 } from "../../ui/dialog";
-
-// ─── Icon picker options ─────────────────────────────────────────────────────
-
-const ICON_OPTIONS: { key: string; Icon: LucideIcon }[] = [
-  { key: "settings",   Icon: Settings },
-  { key: "palette",    Icon: Palette },
-  { key: "megaphone",  Icon: Megaphone },
-  { key: "package",    Icon: Package },
-  { key: "code",       Icon: Code },
-  { key: "rocket",     Icon: Rocket },
-  { key: "lightbulb",  Icon: Lightbulb },
-  { key: "users",      Icon: Users },
-  { key: "zap",        Icon: Zap },
-  { key: "target",     Icon: Target },
-  { key: "bar-chart",  Icon: BarChart2 },
-  { key: "globe",      Icon: Globe },
-  { key: "shield",     Icon: Shield },
-  { key: "briefcase",  Icon: Briefcase },
-  { key: "heart",      Icon: Heart },
-  { key: "wrench",     Icon: Wrench },
-];
-
-const PRESET_COLORS = [
-  "#98c379", "#e06c75", "#61afef", "#e5c07b", "#c678dd",
-  "#56b6c2", "#d19a66", "#abb2bf", "#5c6370", "#be5046",
-];
+import { ColorPickerPopover } from "../shared/ColorPickerPopover";
+import { IconPickerPopover, TEAM_ICONS, getIconByKey } from "../shared/IconPickerPopover";
+import { useApp } from "../../../context/AppContext";
+import { USERS, WORKSPACE_MEMBERSHIPS, TEAM_MEMBERS, type Team, type TeamRole } from "../../../data/mockData";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface NewTeamData {
+export interface TeamMemberEntry {
+  userId: string;
+  role: TeamRole;
+}
+
+export interface TeamFormData {
   name: string;
   description: string;
   color: string;
   iconKey: string;
   Icon: LucideIcon;
+  members: TeamMemberEntry[];
 }
 
-interface CreateTeamModalProps {
+interface TeamModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateTeam: (team: NewTeamData) => void;
+  onSave: (data: TeamFormData) => void;
   workspaceName: string;
+  /** Pass a team to switch to edit mode with prefilled data */
+  editTeam?: Team;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function CreateTeamModal({ open, onOpenChange, onCreateTeam, workspaceName }: CreateTeamModalProps) {
+export function TeamModal({ open, onOpenChange, onSave, workspaceName, editTeam }: TeamModalProps) {
+  const { activeWorkspace } = useApp();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isEdit = !!editTeam;
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState(PRESET_COLORS[2]);
+  const [color, setColor] = useState("#61afef");
   const [iconKey, setIconKey] = useState("settings");
+  const [members, setMembers] = useState<TeamMemberEntry[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
 
-  const selectedIcon = ICON_OPTIONS.find((o) => o.key === iconKey) ?? ICON_OPTIONS[0];
+  // Reset form when modal opens or editTeam changes
+  useEffect(() => {
+    if (!open) return;
+    if (editTeam) {
+      setName(editTeam.name);
+      setDescription(editTeam.description);
+      setColor(editTeam.color);
+      const match = TEAM_ICONS.find((i) => i.Icon === editTeam.Icon);
+      setIconKey(match?.key ?? "settings");
+      setMembers(
+        TEAM_MEMBERS.filter((tm) => tm.teamId === editTeam.id).map((tm) => ({ userId: tm.userId, role: tm.role }))
+      );
+    } else {
+      setName("");
+      setDescription("");
+      setColor("#61afef");
+      setIconKey("settings");
+      setMembers([]);
+    }
+    setMemberSearch("");
+  }, [open, editTeam?.id]);
 
-  function handleCreate() {
+  const SelectedIcon = getIconByKey(iconKey, TEAM_ICONS);
+
+  // Available workspace members
+  const wsMembers = WORKSPACE_MEMBERSHIPS
+    .filter((wm) => wm.workspaceId === activeWorkspace.id)
+    .map((wm) => {
+      const user = USERS.find((u) => u.id === wm.userId);
+      return user ? { ...user, wsRole: wm.role } : null;
+    })
+    .filter(Boolean) as (typeof USERS[number] & { wsRole: string })[];
+
+  const filteredMembers = wsMembers.filter((u) =>
+    !memberSearch || u.name.toLowerCase().includes(memberSearch.toLowerCase()) || u.email.toLowerCase().includes(memberSearch.toLowerCase())
+  );
+
+  const selectedIds = new Set(members.map((m) => m.userId));
+  const unselectedResults = filteredMembers.filter((u) => !selectedIds.has(u.id));
+
+  function toggleMember(userId: string) {
+    if (selectedIds.has(userId)) {
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+    } else {
+      setMembers((prev) => [...prev, { userId, role: "STANDARD" }]);
+    }
+  }
+
+  function setMemberRole(userId: string, role: TeamRole) {
+    setMembers((prev) => prev.map((m) => m.userId === userId ? { ...m, role } : m));
+  }
+
+  function handleSubmit() {
     if (!name.trim()) return;
-    onCreateTeam({ name: name.trim(), description: description.trim(), color, iconKey, Icon: selectedIcon.Icon });
-    setName("");
-    setDescription("");
-    setColor(PRESET_COLORS[2]);
-    setIconKey("settings");
+    onSave({ name: name.trim(), description: description.trim(), color, iconKey, Icon: SelectedIcon, members });
     onOpenChange(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Create team</DialogTitle>
-          <DialogDescription>Add a new team to {workspaceName}.</DialogDescription>
+          <DialogTitle>{isEdit ? "Edit team" : "Create team"}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? `Update settings and members for this team.` : `Add a new team to ${workspaceName}.`}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 max-h-[65vh] overflow-y-auto px-1">
           {/* Name */}
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Team name</label>
@@ -89,7 +126,7 @@ export function CreateTeamModal({ open, onOpenChange, onCreateTeam, workspaceNam
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Engineering"
-              autoFocus
+              autoFocus={!isEdit}
               className="w-full text-sm bg-input-background border border-border rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
             />
           </div>
@@ -106,54 +143,128 @@ export function CreateTeamModal({ open, onOpenChange, onCreateTeam, workspaceNam
             />
           </div>
 
-          {/* Color */}
+          {/* Icon & color */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Color</label>
-            <div className="flex gap-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className="h-6 w-6 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
-                  style={{ backgroundColor: c }}
-                >
-                  {c === color && <Check className="h-3 w-3 text-white drop-shadow" />}
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Appearance</label>
+            <div className="flex items-center gap-3">
+              <IconPickerPopover
+                value={iconKey}
+                color={color}
+                icons={TEAM_ICONS}
+                onChange={(key) => setIconKey(key)}
+              >
+                <button className="h-9 px-3 rounded-lg border border-border hover:border-muted-foreground/30 transition-colors flex items-center gap-2">
+                  <div className="h-5 w-5 rounded-md flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
+                    <SelectedIcon className="h-3 w-3" style={{ color }} />
+                  </div>
+                  <span className="text-xs text-foreground">Icon</span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
                 </button>
-              ))}
+              </IconPickerPopover>
+              <ColorPickerPopover value={color} onChange={setColor}>
+                <button className="h-9 px-3 rounded-lg border border-border hover:border-muted-foreground/30 transition-colors flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-full border border-border/50" style={{ backgroundColor: color }} />
+                  <span className="text-xs text-foreground">Color</span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+              </ColorPickerPopover>
             </div>
           </div>
 
-          {/* Icon */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Icon</label>
-            <div className="grid grid-cols-8 gap-1.5">
-              {ICON_OPTIONS.map((opt) => (
-                <button
-                  key={opt.key}
-                  onClick={() => setIconKey(opt.key)}
-                  className={cn(
-                    "h-8 w-8 rounded-lg flex items-center justify-center transition-all",
-                    iconKey === opt.key
-                      ? "ring-2 ring-primary/50 bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                  )}
-                >
-                  <opt.Icon className="h-3.5 w-3.5" />
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Divider */}
+          <div className="h-px bg-border" />
 
-          {/* Preview */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
-            <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: `${color}15` }}>
-              <selectedIcon.Icon className="h-4 w-4" style={{ color }} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{name || "Team name"}</p>
-              <p className="text-xs text-muted-foreground">{description || "No description"}</p>
-            </div>
+          {/* Members */}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Members{members.length > 0 ? ` (${members.length})` : ""}
+            </label>
+
+            {/* Search input with typeahead */}
+            <PopoverPrimitive.Root open={memberSearch.length > 0 && unselectedResults.length > 0}>
+              <PopoverPrimitive.Anchor asChild>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    ref={inputRef}
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder="Search by name or email..."
+                    className="w-full text-sm bg-input-background border border-border rounded-lg pl-9 pr-3 py-2 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  />
+                </div>
+              </PopoverPrimitive.Anchor>
+              <PopoverPrimitive.Portal>
+                <PopoverPrimitive.Content
+                  align="start"
+                  sideOffset={4}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  className="z-50 w-[var(--radix-popover-trigger-width)] bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-44 overflow-y-auto animate-in fade-in-0 zoom-in-95"
+                >
+                  {unselectedResults.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => { toggleMember(user.id); setMemberSearch(""); inputRef.current?.focus(); }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-accent transition-colors"
+                    >
+                      <div className="h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-semibold flex-shrink-0"
+                        style={{ backgroundColor: `${user.color}20`, color: user.color }}>
+                        {user.initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{user.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {user.jobTitle ? `${user.jobTitle} · ` : ""}{user.email}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </PopoverPrimitive.Content>
+              </PopoverPrimitive.Portal>
+            </PopoverPrimitive.Root>
+
+            {/* Added members list */}
+            {members.length > 0 && (
+              <div className="mt-2 rounded-lg border border-border overflow-hidden divide-y divide-border">
+                {members.map((m) => {
+                  const user = USERS.find((u) => u.id === m.userId);
+                  if (!user) return null;
+                  const isAdmin = m.role === "ADMIN";
+                  return (
+                    <div key={m.userId} className="flex items-center gap-3 px-3 py-2">
+                      <div className="h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-semibold flex-shrink-0"
+                        style={{ backgroundColor: `${user.color}20`, color: user.color }}>
+                        {user.initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{user.name}</p>
+                        {user.jobTitle && <p className="text-xs text-muted-foreground truncate">{user.jobTitle}</p>}
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <select
+                          value={m.role}
+                          onChange={(e) => setMemberRole(m.userId, e.target.value as TeamRole)}
+                          className={cn(
+                            "appearance-none text-xs font-medium pl-2 pr-6 py-1 rounded-md border cursor-pointer",
+                            isAdmin
+                              ? "bg-chart-4/10 border-chart-4/20 text-chart-4"
+                              : "bg-muted border-border text-muted-foreground"
+                          )}
+                        >
+                          <option value="STANDARD">Member</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                      </div>
+                      <button onClick={() => toggleMember(m.userId)}
+                        className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-destructive/10 transition-colors flex-shrink-0">
+                        <X className="h-3 w-3 text-muted-foreground" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -165,7 +276,7 @@ export function CreateTeamModal({ open, onOpenChange, onCreateTeam, workspaceNam
             Cancel
           </button>
           <button
-            onClick={handleCreate}
+            onClick={handleSubmit}
             disabled={!name.trim()}
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-all",
@@ -174,10 +285,14 @@ export function CreateTeamModal({ open, onOpenChange, onCreateTeam, workspaceNam
                 : "bg-muted text-muted-foreground cursor-not-allowed"
             )}
           >
-            Create team
+            {isEdit ? "Save changes" : "Create team"}
           </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+// Re-export with old name for backwards compat
+export { TeamModal as CreateTeamModal };
+export type { TeamFormData as NewTeamData, TeamMemberEntry as NewTeamMember };

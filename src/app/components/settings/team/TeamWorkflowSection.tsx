@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useApp } from "../../../context/AppContext";
-import { cn } from "../../ui/utils";
+import { ColorPickerPopover } from "../shared/ColorPickerPopover";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -11,11 +11,6 @@ interface WorkflowItem {
   color: string;
 }
 
-const PRESET_COLORS = [
-  "#98c379", "#e06c75", "#61afef", "#e5c07b", "#c678dd",
-  "#56b6c2", "#d19a66", "#abb2bf", "#5c6370", "#be5046",
-];
-
 // ─── Compact editable tag list ───────────────────────────────────────────────
 
 function TagList({ items, onChange, addLabel }: {
@@ -24,7 +19,6 @@ function TagList({ items, onChange, addLabel }: {
   addLabel: string;
 }) {
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [colorPickerOpen, setColorPickerOpen] = useState<number | null>(null);
 
   return (
     <div className="flex flex-wrap gap-2 px-5 py-4">
@@ -42,36 +36,20 @@ function TagList({ items, onChange, addLabel }: {
               />
             </div>
           ) : (
-            <button
-              onClick={() => setEditingId(item.id)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border hover:border-muted-foreground/30 transition-colors text-xs"
-            >
-              <div className="relative">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border hover:border-muted-foreground/30 transition-colors text-xs">
+              <ColorPickerPopover
+                value={item.color}
+                onChange={(c) => onChange(items.map((x) => x.id === item.id ? { ...x, color: c } : x))}
+              >
                 <button
-                  onClick={(e) => { e.stopPropagation(); setColorPickerOpen(colorPickerOpen === item.id ? null : item.id); }}
                   className="h-3 w-3 rounded-full flex-shrink-0 hover:scale-125 transition-transform"
                   style={{ backgroundColor: item.color }}
                 />
-                {colorPickerOpen === item.id && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setColorPickerOpen(null)} />
-                    <div className="absolute top-5 left-0 z-50 bg-popover border border-border rounded-xl shadow-xl p-2 w-[140px]">
-                      <div className="grid grid-cols-5 gap-1">
-                        {PRESET_COLORS.map((c) => (
-                          <button key={c}
-                            onClick={(e) => { e.stopPropagation(); onChange(items.map((x) => x.id === item.id ? { ...x, color: c } : x)); setColorPickerOpen(null); }}
-                            className="h-5 w-5 rounded-full hover:scale-110 transition-transform flex items-center justify-center"
-                            style={{ backgroundColor: c }}>
-                            {c === item.color && <Check className="h-2 w-2 text-white" />}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              <span className="text-foreground">{item.label}</span>
-            </button>
+              </ColorPickerPopover>
+              <button onClick={() => setEditingId(item.id)} className="text-foreground">
+                {item.label}
+              </button>
+            </div>
           )}
           {items.length > 1 && (
             <button

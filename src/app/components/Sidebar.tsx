@@ -31,7 +31,7 @@ interface SidebarProps {
 
 const MAIN_NAV = [
   { path: "/",         label: "Dashboard", icon: LayoutDashboard, exact: true },
-  null,
+  { path: "/tasks",    label: "Tasks",     icon: ListTodo },
   { path: "/calendar", label: "Calendar",  icon: Calendar },
   null,
   { path: "/goals",    label: "Goals",     icon: Target },
@@ -341,7 +341,7 @@ function TeamSection({ team, role, collapsed, defaultOpen }: {
   );
 }
 
-// ─── Active session timer widget ──────────────────────────────────────────────
+// ─── Active session timer widget (floating card) ─────────────────────────────
 
 function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, onStop }: {
   collapsed: boolean;
@@ -354,55 +354,66 @@ function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, 
 }) {
   if (collapsed) {
     return (
-      <div className="border-t border-sidebar-border px-1 py-3 flex flex-col items-center gap-2">
-        <div className="relative flex-shrink-0">
-          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
-          {running && <div className="absolute inset-0 rounded-full animate-ping opacity-60" style={{ backgroundColor: session.projectColor }} />}
+      <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar shadow-md overflow-hidden block hover:border-sidebar-primary/30 transition-colors">
+        <div className="h-1 w-full" style={{ backgroundColor: session.projectColor }} />
+        <div className="flex flex-col items-center gap-1.5 px-1.5 py-2">
+          <span className="text-xs font-mono tabular-nums text-foreground leading-none">{formatDuration(seconds)}</span>
+          <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
+            <button onClick={(e) => { e.preventDefault(); (running ? onPause : onResume)(); }}
+              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors">
+              {running ? <Pause className="h-3 w-3 text-muted-foreground" /> : <Play className="h-3 w-3 text-muted-foreground" />}
+            </button>
+            <button onClick={(e) => { e.preventDefault(); onStop(); }}
+              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors">
+              <Square className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
         </div>
-        <span className="text-xs font-mono tabular-nums text-muted-foreground leading-none">{formatDuration(seconds)}</span>
-        <button onClick={running ? onPause : onResume}
-          className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors">
-          {running ? <Pause className="h-3 w-3 text-muted-foreground" /> : <Play className="h-3 w-3 text-muted-foreground" />}
-        </button>
-      </div>
+      </NavLink>
     );
   }
 
   return (
-    <div className="border-t border-sidebar-border px-3 py-2.5">
-      {/* Task name row */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <div className="relative flex-shrink-0">
-          <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
-          {running && (
-            <div className="absolute inset-0 rounded-full animate-ping opacity-50"
-              style={{ backgroundColor: session.projectColor }} />
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground truncate flex-1 leading-none">{session.taskTitle}</p>
-      </div>
+    <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar shadow-md overflow-hidden block hover:border-sidebar-primary/30 transition-colors">
+      {/* Color accent bar */}
+      <div className="h-1 w-full" style={{ backgroundColor: session.projectColor }} />
 
-      {/* Timer row */}
-      <div className="flex items-center justify-between pl-3.5">
-        <span className="text-sm font-mono font-semibold tabular-nums text-foreground tracking-wide">
-          {formatDuration(seconds)}
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button onClick={running ? onPause : onResume}
-            className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors"
-            title={running ? "Pause" : "Resume"}>
-            {running
-              ? <Pause className="h-3 w-3 text-muted-foreground" />
-              : <Play className="h-3 w-3 text-muted-foreground" />}
-          </button>
-          <button onClick={onStop}
-            className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors"
-            title="Stop">
-            <Square className="h-3 w-3 text-muted-foreground" />
-          </button>
+      <div className="px-3 py-2.5">
+        {/* Task title + controls */}
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-foreground font-medium truncate flex-1">{session.taskTitle}</p>
+          <div className="flex items-center gap-0.5 flex-shrink-0" onClick={(e) => e.preventDefault()}>
+            <button onClick={(e) => { e.preventDefault(); (running ? onPause : onResume)(); }}
+              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors"
+              title={running ? "Pause" : "Resume"}>
+              {running
+                ? <Pause className="h-3 w-3 text-muted-foreground" />
+                : <Play className="h-3 w-3 text-muted-foreground" />}
+            </button>
+            <button onClick={(e) => { e.preventDefault(); onStop(); }}
+              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors"
+              title="Stop">
+              <Square className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+
+        {/* Project + duration */}
+        <div className="flex items-center gap-2 mt-1">
+          <div className="relative flex-shrink-0">
+            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
+            {running && <div className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ backgroundColor: session.projectColor }} />}
+          </div>
+          {session.projectName && (
+            <>
+              <span className="text-xs text-muted-foreground truncate">{session.projectName}</span>
+              <span className="text-xs text-muted-foreground/40">&middot;</span>
+            </>
+          )}
+          <span className="text-xs font-mono tabular-nums text-muted-foreground">{formatDuration(seconds)}</span>
         </div>
       </div>
-    </div>
+    </NavLink>
   );
 }
 
@@ -476,7 +487,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isSettingsPage = location.pathname === "/settings";
+  const isSettingsPage = location.pathname.startsWith("/settings");
   const isOrg = activeWorkspace.type === "ORGANIZATION";
   const isOrgAdmin = isOrg && (workspaceRole === "ADMIN" || workspaceRole === "OWNER");
   const canSeeBilling = workspaceRole === "OWNER" || workspaceRole === "ADMIN";
@@ -531,9 +542,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             )}
 
             {/* Grouped settings nav */}
-            {settingsGroups.map((group, groupIdx) => {
+            {settingsGroups.map((group) => {
               const meta = CATEGORY_META[group.category];
-              const isWorkspaceScoped = group.category === "workspace-admin" || group.category === "my-workspace" || group.category === "team";
+              const isWorkspaceScoped = group.category === "workspace-admin";
 
               return (
                 <div key={group.category}>
@@ -555,41 +566,28 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     </p>
                   )}
 
-                  {/* Team selector — above nav items for Team category */}
-                  {group.category === "team" && !collapsed && (() => {
-                    const teamsToShow = isOrgAdmin
-                      ? allWorkspaceTeams
-                      : myTeams.map((mt) => mt.team);
-
-                    if (teamsToShow.length === 0) return null;
-
-                    return (
-                      <TeamSwitcher
-                        teams={teamsToShow}
-                        selectedId={selectedTeamId}
-                        onSelect={setSelectedTeamId}
-                        myTeams={myTeams}
-                      />
-                    );
-                  })()}
-
                   {/* Nav items */}
                   {group.items.map((s) => (
-                    <button
+                    <NavLink
                       key={s.id}
-                      onClick={() => setSettingsSection(s.id)}
+                      to={`/settings/${s.id}`}
+                      end
                       title={collapsed ? s.label : undefined}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors",
+                      className={({ isActive }) => cn(
+                        "flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors",
                         collapsed && "justify-center px-0",
-                        settingsSection === s.id
+                        isActive
                           ? "bg-sidebar-accent text-sidebar-primary font-medium"
                           : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
                       )}
                     >
-                      <s.icon className={cn("h-4 w-4 flex-shrink-0", settingsSection === s.id ? "text-sidebar-primary" : "text-muted-foreground")} />
-                      {!collapsed && <span>{s.label}</span>}
-                    </button>
+                      {({ isActive }) => (
+                        <>
+                          <s.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-sidebar-primary" : "text-muted-foreground")} />
+                          {!collapsed && <span>{s.label}</span>}
+                        </>
+                      )}
+                    </NavLink>
                   ))}
                 </div>
               );
@@ -618,16 +616,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 </NavLink>
               );
             })}
-
-            {/* Teams section */}
-            {isOrg && myTeams.length > 0 && (
-              <>
-                <SectionLabel label="Teams" collapsed={collapsed} />
-                {myTeams.map((mt, i) => (
-                  <TeamSection key={mt.team.id} team={mt.team} role={mt.role} collapsed={collapsed} defaultOpen={i === 0} />
-                ))}
-              </>
-            )}
 
             {/* Org admin section */}
             {isOrgAdmin && (
@@ -691,7 +679,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               style={{ backgroundColor: "#61afef20", color: "#61afef" }}>
               AC
             </div>
-            <NavLink to="/settings"
+            <NavLink to="/settings/account"
               className={({ isActive }) => cn(
                 "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
                 isActive ? "text-sidebar-primary bg-sidebar-accent" : "text-muted-foreground hover:bg-sidebar-accent"
@@ -712,7 +700,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               )}
             </div>
             <span className="flex-1 text-sm text-sidebar-foreground font-medium truncate">Alex Chen</span>
-            <NavLink to="/settings"
+            <NavLink to="/settings/account"
               className={({ isActive }) => cn(
                 "h-7 w-7 flex items-center justify-center rounded-md transition-colors flex-shrink-0",
                 isActive ? "text-sidebar-primary bg-sidebar-accent" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"

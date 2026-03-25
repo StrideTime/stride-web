@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Toggle } from "../shared/Toggle";
+import { ApplyToAllBanner } from "../shared/ApplyToAllBanner";
 import { cn } from "../../ui/utils";
 
 interface DaySchedule {
@@ -114,6 +115,9 @@ export function MyScheduleSection() {
           ))}
         </div>
       </div>
+
+      {/* Apply to all workspaces */}
+      <ApplyToAllBanner />
     </div>
   );
 }

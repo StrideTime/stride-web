@@ -30,6 +30,9 @@ interface EditMemberModalProps {
   memberEmail: string;
   memberInitials: string;
   memberColor: string;
+  memberJobTitle?: string;
+  /** Teams the member belongs to, with role + color + icon */
+  memberTeams?: { name: string; role: string; color: string }[];
 
   // Context: "workspace" or "team"
   context: "workspace" | "team";
@@ -57,7 +60,7 @@ interface EditMemberModalProps {
 
 export function EditMemberModal({
   open, onOpenChange, onSave,
-  memberName, memberEmail, memberInitials, memberColor,
+  memberName, memberEmail, memberInitials, memberColor, memberJobTitle, memberTeams,
   context, teamName,
   workspaceRole: initWsRole, teamRole: initTeamRole,
   payType: initPayType, rate: initRate, clockIn: initClockIn,
@@ -108,14 +111,30 @@ export function EditMemberModal({
 
         <div className="space-y-5 py-2">
           {/* Member info header */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border">
-            <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+            <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5"
               style={{ backgroundColor: `${memberColor}20`, color: memberColor }}>
               {memberInitials}
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">{memberName}</p>
+              {memberJobTitle && (
+                <p className="text-xs text-muted-foreground">{memberJobTitle}</p>
+              )}
               <p className="text-xs text-muted-foreground">{memberEmail}</p>
+              {memberTeams && memberTeams.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {memberTeams.map((t) => (
+                    <span key={t.name} className={cn(
+                      "flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-md border",
+                      t.role === "ADMIN" ? "border-chart-4/20 bg-chart-4/5 text-chart-4" : "border-border bg-muted/30 text-muted-foreground"
+                    )}>
+                      {t.name}
+                      {t.role === "ADMIN" && <Shield className="h-2.5 w-2.5" />}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

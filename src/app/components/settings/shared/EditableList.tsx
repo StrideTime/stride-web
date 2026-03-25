@@ -1,37 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { Check, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-
-const PRESET_COLORS = [
-  "#98c379","#e06c75","#61afef","#e5c07b","#c678dd",
-  "#56b6c2","#d19a66","#abb2bf","#5c6370","#be5046",
-];
+import { useState } from "react";
+import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { ColorPickerPopover } from "./ColorPickerPopover";
 
 export interface EditableItem { id: number; label: string; color: string; }
-
-function ColorPicker({ value, onChange, onClose }: {
-  value: string; onChange: (c: string) => void; onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
-
-  return (
-    <div ref={ref} className="absolute top-7 left-0 z-30 bg-popover border border-border rounded-xl shadow-xl p-3 w-[148px]">
-      <div className="grid grid-cols-5 gap-1.5">
-        {PRESET_COLORS.map((c) => (
-          <button key={c} onClick={() => { onChange(c); onClose(); }}
-            className="h-6 w-6 rounded-full transition-transform hover:scale-110 flex items-center justify-center"
-            style={{ backgroundColor: c }}>
-            {c === value && <Check className="h-3 w-3 text-white drop-shadow" />}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 interface EditableListProps {
   items: EditableItem[];
@@ -41,8 +12,6 @@ interface EditableListProps {
 }
 
 export function EditableList({ items, onChange, addLabel, minCount = 2 }: EditableListProps) {
-  const [pickerOpen, setPickerOpen] = useState<number | null>(null);
-
   const move = (idx: number, dir: -1 | 1) => {
     const next = [...items];
     const swap = idx + dir;
@@ -55,18 +24,10 @@ export function EditableList({ items, onChange, addLabel, minCount = 2 }: Editab
     <div>
       {items.map((item, idx) => (
         <div key={item.id} className="flex items-center gap-3 px-4 py-3 group border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => setPickerOpen(pickerOpen === item.id ? null : item.id)}
-              className="h-5 w-5 rounded-full ring-2 ring-transparent hover:ring-offset-2 hover:ring-border transition-all"
-              style={{ backgroundColor: item.color }}
-            />
-            {pickerOpen === item.id && (
-              <ColorPicker value={item.color}
-                onChange={(c) => onChange(items.map((x) => x.id === item.id ? { ...x, color: c } : x))}
-                onClose={() => setPickerOpen(null)} />
-            )}
-          </div>
+          <ColorPickerPopover
+            value={item.color}
+            onChange={(c) => onChange(items.map((x) => x.id === item.id ? { ...x, color: c } : x))}
+          />
           <input
             value={item.label}
             onChange={(e) => onChange(items.map((x) => x.id === item.id ? { ...x, label: e.target.value } : x))}
