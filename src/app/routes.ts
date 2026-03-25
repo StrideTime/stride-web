@@ -10,6 +10,7 @@ import { StatsPage } from "./components/stats/StatsPage";
 import { TasksPage } from "./components/TasksPage";
 import { PlaceholderPage } from "./components/PlaceholderPage";
 import { TimerPage } from "./components/TimerPage";
+import { CalendarPage } from "./components/CalendarPage";
 
 export const router = createBrowserRouter([
   {
@@ -20,7 +21,7 @@ export const router = createBrowserRouter([
       { path: "tasks",                    Component: TasksPage },
       { path: "focus",                    Component: PlaceholderPage },
       { path: "timer",                    Component: TimerPage },
-      { path: "calendar",                 Component: PlaceholderPage },
+      { path: "calendar",                 Component: CalendarPage },
       { path: "goals",                    Component: GoalsPage },
       { path: "stats",                   Component: StatsPage },
       // Team routes
