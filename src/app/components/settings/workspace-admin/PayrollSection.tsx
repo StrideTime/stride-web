@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Banknote, ChevronDown, ChevronUp, Edit2, Check,
-  DollarSign, AlertCircle, Clock, Users,
+  DollarSign, AlertCircle, Clock, Users, CalendarDays,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -42,6 +42,47 @@ function getPeriodLabels(frequency: string): string[] {
   return ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
 }
 
+/** All selectable pay periods for a given frequency (most recent first, index 0 = current). */
+function getPeriodOptions(frequency: string): string[] {
+  if (frequency === "weekly") return [
+    "Mar 17 – Mar 23", "Mar 10 – Mar 16", "Mar 3 – Mar 9",
+    "Feb 24 – Mar 2",  "Feb 17 – Feb 23", "Feb 10 – Feb 16", "Feb 3 – Feb 9",
+  ];
+  if (frequency === "biweekly") return [
+    "Mar 10 – Mar 23", "Feb 24 – Mar 9",  "Feb 10 – Feb 23",
+    "Jan 27 – Feb 9",  "Jan 13 – Jan 26", "Dec 30 – Jan 12", "Dec 16 – Dec 29",
+  ];
+  if (frequency === "semimonthly") return [
+    "Mar 1 – Mar 15",  "Feb 16 – Feb 28", "Feb 1 – Feb 15",
+    "Jan 16 – Jan 31", "Jan 1 – Jan 15",  "Dec 16 – Dec 31", "Dec 1 – Dec 15",
+  ];
+  return ["Mar 2026", "Feb 2026", "Jan 2026", "Dec 2025", "Nov 2025", "Oct 2025", "Sep 2025"];
+}
+
+/** Return hours/earnings for a member for the given period offset (0 = current). */
+function getMemberPeriodData(mp: MemberPayroll, offset: number) {
+  if (offset === 0) {
+    return {
+      hours: mp.hoursThisPeriod,
+      overtimeHours: mp.overtimeHours,
+      earnings: mp.periodEarnings,
+      overtimeEarnings: mp.overtimeEarnings,
+    };
+  }
+  const histIdx = mp.history.length - 1 - offset;
+  const hours = histIdx >= 0 ? (mp.history[histIdx] ?? 0) : 0;
+  const overtimeHours = Math.max(0, hours - mp.expectedHours);
+  const regularHours = Math.min(hours, mp.expectedHours);
+  const hourlyRate = parseFloat(mp.rate) || 0;
+  const earnings = mp.payType === "HOURLY"
+    ? regularHours * hourlyRate
+    : mp.periodEarnings; // salary is flat each period
+  const overtimeEarnings = mp.payType === "HOURLY" && overtimeHours > 0
+    ? overtimeHours * hourlyRate * mp.overtimeRate
+    : 0;
+  return { hours, overtimeHours, earnings, overtimeEarnings };
+}
+
 // ─── Chart tooltip ───────────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: any) {
@@ -68,24 +109,34 @@ export function PayrollSection() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewFilter, setViewFilter] = useState<string>("all"); // "all" or team id
+  const [payTypeFilter, setPayTypeFilter] = useState<"all" | "hourly" | "salary">("all");
+  const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, 1 = previous, etc.
 
-  const periodLabel = wsPermissions.payFrequency === "weekly" ? "Mar 17 \u2013 Mar 23" :
-    wsPermissions.payFrequency === "biweekly" ? "Mar 10 \u2013 Mar 23" :
-    wsPermissions.payFrequency === "semimonthly" ? "Mar 1 \u2013 Mar 15" :
-    "Mar 1 \u2013 Mar 31";
+  const periodOptions = getPeriodOptions(wsPermissions.payFrequency);
+  const periodLabel = periodOptions[periodOffset] ?? periodOptions[0];
+  const isCurrentPeriod = periodOffset === 0;
 
-  // Filter members by team
+  // Filter members by team + pay type
   const filteredPayroll = useMemo(() => {
-    if (viewFilter === "all") return payroll;
-    const teamMemberIds = TEAM_MEMBERS.filter((tm) => tm.teamId === viewFilter).map((tm) => tm.userId);
-    return payroll.filter((mp) => teamMemberIds.includes(mp.userId));
-  }, [payroll, viewFilter]);
+    let result = payroll;
+    if (viewFilter !== "all") {
+      const teamMemberIds = TEAM_MEMBERS.filter((tm) => tm.teamId === viewFilter).map((tm) => tm.userId);
+      result = result.filter((mp) => teamMemberIds.includes(mp.userId));
+    }
+    if (payTypeFilter === "hourly")  result = result.filter((mp) => mp.payType === "HOURLY");
+    if (payTypeFilter === "salary")  result = result.filter((mp) => mp.payType === "SALARY");
+    return result;
+  }, [payroll, viewFilter, payTypeFilter]);
 
-  const totalHours = filteredPayroll.reduce((s, m) => s + m.hoursThisPeriod, 0);
+  // Totals computed for the selected period
+  const totalHours = filteredPayroll.reduce((s, m) => s + getMemberPeriodData(m, periodOffset).hours, 0);
   const totalExpected = filteredPayroll.reduce((s, m) => s + m.expectedHours, 0);
-  const totalOT = filteredPayroll.reduce((s, m) => s + m.overtimeHours, 0);
-  const totalEarnings = filteredPayroll.reduce((s, m) => s + m.periodEarnings + m.overtimeEarnings, 0);
-  const totalOTEarnings = filteredPayroll.reduce((s, m) => s + m.overtimeEarnings, 0);
+  const totalOT = filteredPayroll.reduce((s, m) => s + getMemberPeriodData(m, periodOffset).overtimeHours, 0);
+  const totalEarnings = filteredPayroll.reduce((s, m) => {
+    const d = getMemberPeriodData(m, periodOffset);
+    return s + d.earnings + d.overtimeEarnings;
+  }, 0);
+  const totalOTEarnings = filteredPayroll.reduce((s, m) => s + getMemberPeriodData(m, periodOffset).overtimeEarnings, 0);
 
   // Team averages for the overview chart
   const labels = getPeriodLabels(wsPermissions.payFrequency);
@@ -136,21 +187,64 @@ export function PayrollSection() {
 
   return (
     <div className="space-y-5">
-      {/* View filter tabs */}
-      <div className="flex items-center gap-1 p-1 bg-muted rounded-lg overflow-x-auto">
-        <button onClick={() => setViewFilter("all")}
-          className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-            viewFilter === "all" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-          All members
-        </button>
-        {allWorkspaceTeams.map((team) => (
-          <button key={team.id} onClick={() => setViewFilter(team.id)}
-            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
-              viewFilter === team.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
-            <team.Icon className="h-3 w-3" style={{ color: team.color }} />
-            {team.name}
-          </button>
-        ))}
+      {/* Filters row */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Team filter */}
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg overflow-x-auto">
+            <button onClick={() => setViewFilter("all")}
+              className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
+                viewFilter === "all" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+              All teams
+            </button>
+            {allWorkspaceTeams.map((team) => (
+              <button key={team.id} onClick={() => setViewFilter(team.id)}
+                className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap",
+                  viewFilter === team.id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                <team.Icon className="h-3 w-3" style={{ color: team.color }} />
+                {team.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Pay type filter */}
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+            {(["all", "hourly", "salary"] as const).map((pt) => (
+              <button
+                key={pt}
+                onClick={() => setPayTypeFilter(pt)}
+                className={cn(
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap capitalize",
+                  payTypeFilter === pt ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {pt === "all" ? "All pay types" : pt === "hourly" ? "Hourly" : "Salary"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Pay period dropdown */}
+        <div className="flex items-center gap-2">
+          <CalendarDays className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <div className="relative">
+            <select
+              value={periodOffset}
+              onChange={(e) => {
+                setPeriodOffset(Number(e.target.value));
+                setEditingId(null);
+              }}
+              className="appearance-none pl-3 pr-8 py-1.5 text-xs bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer"
+            >
+              {periodOptions.map((label, i) => (
+                <option key={i} value={i}>
+                  {label}{i === 0 ? " (Current)" : ""}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          </div>
+        </div>
       </div>
 
       {/* Summary cards */}
@@ -248,7 +342,12 @@ export function PayrollSection() {
               })()}
             </h3>
           </div>
-          <span className="text-xs text-muted-foreground">{periodLabel}, 2026</span>
+          <div className="flex items-center gap-2">
+            {!isCurrentPeriod && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">Past period</span>
+            )}
+            <span className="text-xs text-muted-foreground">{periodLabel}</span>
+          </div>
         </div>
 
         <div className="divide-y divide-border">
@@ -261,10 +360,11 @@ export function PayrollSection() {
             if (!user) return null;
             const isEditing = editingId === mp.userId;
             const isExpanded = expandedId === mp.userId;
-            const regularHours = mp.hoursThisPeriod - mp.overtimeHours;
+            const pd = getMemberPeriodData(mp, periodOffset);
+            const regularHours = pd.hours - pd.overtimeHours;
             const pct = Math.round((regularHours / mp.expectedHours) * 100);
-            const otPct = mp.expectedHours > 0 ? Math.round((mp.overtimeHours / mp.expectedHours) * 100) : 0;
-            const totalPay = mp.periodEarnings + mp.overtimeEarnings;
+            const otPct = mp.expectedHours > 0 ? Math.round((pd.overtimeHours / mp.expectedHours) * 100) : 0;
+            const totalPay = pd.earnings + pd.overtimeEarnings;
 
             return (
               <div key={mp.userId}>
@@ -284,9 +384,9 @@ export function PayrollSection() {
                         mp.payType === "HOURLY" ? "bg-chart-4/10 text-chart-4" : "bg-muted text-muted-foreground")}>
                         {mp.payType === "HOURLY" ? `$${mp.rate}/hr` : "Salary"}
                       </span>
-                      {mp.overtimeHours > 0 && (
+                      {pd.overtimeHours > 0 && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-chart-4/10 text-chart-4 flex items-center gap-0.5">
-                          <Clock className="h-2.5 w-2.5" /> {mp.overtimeHours}h OT
+                          <Clock className="h-2.5 w-2.5" /> {pd.overtimeHours}h OT
                         </span>
                       )}
                     </div>
@@ -297,9 +397,9 @@ export function PayrollSection() {
                       /* Salary: just show running total, no expected comparison */
                       <>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-foreground tabular-nums font-medium">{mp.hoursThisPeriod}h logged</span>
-                          {mp.overtimeHours > 0 && (
-                            <span className="text-[10px] font-medium text-chart-4 tabular-nums">+{mp.overtimeHours}h OT</span>
+                          <span className="text-xs text-foreground tabular-nums font-medium">{pd.hours}h logged</span>
+                          {pd.overtimeHours > 0 && (
+                            <span className="text-[10px] font-medium text-chart-4 tabular-nums">+{pd.overtimeHours}h OT</span>
                           )}
                         </div>
                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -311,10 +411,10 @@ export function PayrollSection() {
                       <>
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-foreground tabular-nums font-medium">
-                            {mp.hoursThisPeriod}h <span className="text-muted-foreground font-normal">/ {mp.expectedHours}h</span>
+                            {pd.hours}h <span className="text-muted-foreground font-normal">/ {mp.expectedHours}h</span>
                           </span>
-                          {mp.overtimeHours > 0 ? (
-                            <span className="text-[10px] font-medium text-chart-4 tabular-nums">+{mp.overtimeHours}h OT</span>
+                          {pd.overtimeHours > 0 ? (
+                            <span className="text-[10px] font-medium text-chart-4 tabular-nums">+{pd.overtimeHours}h OT</span>
                           ) : (
                             <span className={cn("text-[10px] font-medium tabular-nums",
                               pct >= 90 ? "text-chart-2" : pct >= 70 ? "text-chart-4" : "text-destructive")}>
@@ -338,8 +438,8 @@ export function PayrollSection() {
                     <p className="text-sm font-semibold text-foreground tabular-nums">
                       ${totalPay.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </p>
-                    {mp.overtimeEarnings > 0 && (
-                      <p className="text-[10px] text-chart-4 tabular-nums">+${mp.overtimeEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })} OT</p>
+                    {pd.overtimeEarnings > 0 && (
+                      <p className="text-[10px] text-chart-4 tabular-nums">+${pd.overtimeEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })} OT</p>
                     )}
                   </div>
 
@@ -431,11 +531,13 @@ export function PayrollSection() {
                             <Check className="h-2.5 w-2.5" /> Done
                           </button>
                         </div>
-                      ) : (
+                      ) : isCurrentPeriod ? (
                         <button onClick={(e) => { e.stopPropagation(); setEditingId(mp.userId); }}
                           className="text-[10px] px-2 py-1 rounded-md font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1">
                           <Edit2 className="h-2.5 w-2.5" /> Edit compensation
                         </button>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/50 italic">Read-only — past period</span>
                       )}
                     </div>
                   </div>

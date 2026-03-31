@@ -46,12 +46,12 @@ export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { id: "my-schedule",      label: "Schedule",           icon: CalendarDays,        category: "personal", workspaceScoped: true },
   { id: "notifications",    label: "Notifications",      icon: Bell,                category: "personal" },
   { id: "shortcuts",        label: "Keyboard Shortcuts", icon: Keyboard,            category: "personal" },
-  { id: "billing",          label: "Billing",            icon: CreditCard,          category: "personal" },
   // Organization (admin sees all, team admin sees only Teams & Members)
   { id: "ws-general",       label: "General",            icon: Building2,           category: "workspace-admin", requiresAdmin: true },
   { id: "ws-team",          label: "Teams & Members",    icon: Users,               category: "workspace-admin", requiresAdminOrTeamAdmin: true },
   { id: "ws-stats",         label: "Stats & Tracking",   icon: BarChart2,           category: "workspace-admin", requiresAdmin: true },
   { id: "ws-connections",   label: "Connections",         icon: Plug,                category: "workspace-admin", requiresAdmin: true },
+  { id: "billing",          label: "Billing",            icon: CreditCard,          category: "workspace-admin", requiresAdmin: true },
 ];
 
 // ─── Category metadata ──────────────────────────────────────────────────────

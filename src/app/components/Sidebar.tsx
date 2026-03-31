@@ -36,8 +36,7 @@ const MAIN_NAV = [
   { path: "/tasks",    label: "Tasks",     icon: ListTodo },
   { path: "/calendar", label: "Calendar",  icon: Calendar },
   null,
-  { path: "/goals",    label: "Goals",     icon: Target },
-  { path: "/stats",    label: "Stats",     icon: BarChart2 },
+  { path: "/stats",    label: "Insights",  icon: BarChart2 },
   null,
   { path: "/timer",    label: "My Day",    icon: Timer },
 ];
