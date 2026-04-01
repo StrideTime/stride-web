@@ -12,6 +12,7 @@ import {
 import { cn } from "../ui/utils";
 import { TIMEFRAME_LABELS } from "./StatsPage";
 import type { Timeframe } from "./StatsPage";
+import { IntelligenceSection } from "./IntelligenceSection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -851,6 +852,7 @@ export function PersonalStatsSection({ timeframe }: { timeframe: Timeframe }) {
 
   return (
     <div>
+      <IntelligenceSection />
       {widgets.length === 0 ? (
         <EmptyDashboard onOpen={() => setShowCatalog(true)} />
       ) : (

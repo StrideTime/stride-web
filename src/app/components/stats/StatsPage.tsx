@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { User, Users, Building2, Banknote, ChevronDown } from "lucide-react";
+import { User, Users, Building2, Banknote, ChevronDown, Layers } from "lucide-react";
 import { cn } from "../ui/utils";
 import { useApp } from "../../context/AppContext";
 import { PersonalStatsSection } from "./PersonalStatsSection";
 import { TeamStatsSection } from "./TeamStatsSection";
+import { DepartmentStatsSection } from "./DepartmentStatsSection";
 import { OrgStatsSection } from "./OrgStatsSection";
 import { PayrollSection } from "../settings/workspace-admin/PayrollSection";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type InsightsTab = "personal" | "team" | "org" | "payroll";
+type InsightsTab = "personal" | "team" | "department" | "org" | "payroll";
 
 export type Timeframe =
   | "this_week"
@@ -27,10 +28,11 @@ export const TIMEFRAME_LABELS: Record<Timeframe, string> = {
 };
 
 const TAB_DESCRIPTIONS: Record<InsightsTab, string> = {
-  personal: "Your productivity metrics, goal targets, and activity patterns.",
-  team:     "Team velocity, project milestones, and your contribution.",
-  org:      "Organisation-wide throughput, project portfolio, and milestones.",
-  payroll:  "Compensation rates, hours worked, and pay period earnings.",
+  personal:   "Your productivity metrics, ML-powered patterns, and activity insights.",
+  team:       "Team health, velocity trends, and your contribution — not a scoreboard.",
+  department: "Cross-team patterns, collaboration, and department-level health.",
+  org:        "Organisation-wide throughput, project portfolio, and milestones.",
+  payroll:    "Compensation rates, hours worked, and pay period earnings.",
 };
 
 // ─── Timeframe selector ───────────────────────────────────────────────────────
@@ -86,13 +88,15 @@ export function StatsPage() {
   const isOrg       = activeWorkspace.type === "ORGANIZATION";
 
   const canSeeTeam    = isOrg && (isOrgAdmin || isTeamAdmin);
+  const canSeeDept    = isOrg && isOrgAdmin;
   const canSeeOrg     = isOrg && isOrgAdmin;
   const canSeePayroll = canSeeOrg && wsPermissions.trackCompensation;
 
   const tabs: { id: InsightsTab; label: string; icon: typeof User }[] = [
-    { id: "personal", label: "Personal",     icon: User      },
-    ...(canSeeTeam    ? [{ id: "team"    as const, label: "Team",         icon: Users     }] : []),
-    ...(canSeeOrg     ? [{ id: "org"     as const, label: "Organisation", icon: Building2 }] : []),
+    { id: "personal",   label: "Personal",     icon: User      },
+    ...(canSeeTeam ? [{ id: "team"       as const, label: "Team",         icon: Users     }] : []),
+    ...(canSeeDept ? [{ id: "department" as const, label: "Department",   icon: Layers    }] : []),
+    ...(canSeeOrg  ? [{ id: "org"        as const, label: "Organisation", icon: Building2 }] : []),
     ...(canSeePayroll ? [{ id: "payroll" as const, label: "Payroll",      icon: Banknote  }] : []),
   ];
 
@@ -101,10 +105,10 @@ export function StatsPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between mb-1">
           <div>
             <h1 className="text-xl font-bold text-foreground">Insights</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -115,29 +119,32 @@ export function StatsPage() {
         </div>
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mb-6 mt-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
-                validTab === tab.id
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <tab.icon className="h-3.5 w-3.5" />
-              {tab.label}
-            </button>
-          ))}
+        <div className="overflow-x-auto mt-4 mb-6">
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg w-max min-w-full">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap",
+                  validTab === tab.id
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <tab.icon className="h-3.5 w-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tab content */}
-        {validTab === "personal" && <PersonalStatsSection timeframe={timeframe} />}
-        {validTab === "team"     && <TeamStatsSection     timeframe={timeframe} />}
-        {validTab === "org"      && <OrgStatsSection      timeframe={timeframe} />}
-        {validTab === "payroll"  && <PayrollSection />}
+        {validTab === "personal"   && <PersonalStatsSection    timeframe={timeframe} />}
+        {validTab === "team"       && <TeamStatsSection        timeframe={timeframe} />}
+        {validTab === "department" && <DepartmentStatsSection  timeframe={timeframe} />}
+        {validTab === "org"        && <OrgStatsSection         timeframe={timeframe} />}
+        {validTab === "payroll"    && <PayrollSection />}
       </div>
     </div>
   );
