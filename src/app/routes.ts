@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/Layout";
 import { TodayPage } from "./components/TodayPage";
+import { TodayPageClassic } from "./components/TodayPageClassic";
 import { TeamPage } from "./components/TeamPage";
 import { TeamTasksPage } from "./components/TeamTasksPage";
 import { OrgDashboard } from "./components/OrgDashboard";
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true,                      Component: TodayPage },
+      { path: "classic",                  Component: TodayPageClassic },
       { path: "tasks",                    Component: TasksPage },
       { path: "focus",                    Component: PlaceholderPage },
       { path: "timer",                    Component: TimerPage },

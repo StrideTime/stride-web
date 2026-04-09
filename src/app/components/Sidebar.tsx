@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router";
 import {
   LayoutDashboard, Timer, Zap, Calendar, Target, BarChart2,
   Settings, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
-  Plus, Building2, Pause, Play, Square, X,
+  Plus, Building2, X,
   ListTodo, Gauge, TrendingUp, SlidersHorizontal, Check,
   ArrowLeft, LogIn, LogOut, Users, Banknote,
 } from "lucide-react";
@@ -32,14 +32,14 @@ interface SidebarProps {
 // ─── Nav constants ────────────────────────────────────────────────────────────
 
 const MAIN_NAV = [
-  { path: "/",         label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { path: "/tasks",    label: "Tasks",     icon: ListTodo },
-  { path: "/calendar", label: "Calendar",  icon: Calendar },
-  null,
-  { path: "/stats",    label: "Insights",  icon: BarChart2 },
-  null,
-  { path: "/timer",    label: "My Day",    icon: Timer },
+  { path: "/",         label: "Dashboard", icon: LayoutDashboard, color: "#61afef", exact: true  },
+  { path: "/tasks",    label: "Tasks",     icon: ListTodo,        color: "#98c379"               },
+  { path: "/calendar", label: "Calendar",  icon: Calendar,        color: "#c678dd"               },
+  { path: "/stats",    label: "Insights",  icon: BarChart2,       color: "#e5c07b"               },
+  { path: "/timer",    label: "Focus",     icon: Timer,           color: "#e06c75"               },
 ];
+
+const NAV_GROUPS = [MAIN_NAV.slice(0, 3), MAIN_NAV.slice(3, 4), MAIN_NAV.slice(4)];
 
 // Team sub-nav — Tasks always shown, Insights only for admins
 const TEAM_NAV_ADMIN = [
@@ -341,79 +341,6 @@ function TeamSection({ team, role, collapsed, defaultOpen }: {
   );
 }
 
-// ─── Active session timer widget (floating card) ─────────────────────────────
-
-function TimerWidget({ collapsed, session, seconds, running, onPause, onResume, onStop }: {
-  collapsed: boolean;
-  session: { taskTitle: string; projectColor: string; projectName?: string };
-  seconds: number;
-  running: boolean;
-  onPause: () => void;
-  onResume: () => void;
-  onStop: () => void;
-}) {
-  if (collapsed) {
-    return (
-      <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar block hover:bg-sidebar-accent transition-colors">
-        <div className="flex flex-col items-center gap-1.5 px-1.5 py-2.5">
-          <div className="relative">
-            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
-            {running && <div className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ backgroundColor: session.projectColor }} />}
-          </div>
-          <span className="text-xs font-mono tabular-nums text-foreground leading-none">{formatDuration(seconds)}</span>
-          <div className="flex items-center gap-0.5" onClick={(e) => e.preventDefault()}>
-            <button onClick={(e) => { e.preventDefault(); (running ? onPause : onResume)(); }}
-              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors">
-              {running ? <Pause className="h-3 w-3 text-muted-foreground" /> : <Play className="h-3 w-3 text-muted-foreground" />}
-            </button>
-            <button onClick={(e) => { e.preventDefault(); onStop(); }}
-              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors">
-              <Square className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-      </NavLink>
-    );
-  }
-
-  return (
-    <NavLink to="/timer" className="mx-2 mb-2 rounded-lg border border-sidebar-border bg-sidebar block hover:bg-sidebar-accent/50 transition-colors">
-      <div className="px-3 py-2.5">
-        {/* Task title + controls */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-shrink-0">
-            <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: session.projectColor }} />
-            {running && <div className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ backgroundColor: session.projectColor }} />}
-          </div>
-          <p className="text-sm text-foreground font-medium truncate flex-1">{session.taskTitle}</p>
-          <div className="flex items-center gap-0.5 flex-shrink-0" onClick={(e) => e.preventDefault()}>
-            <button onClick={(e) => { e.preventDefault(); (running ? onPause : onResume)(); }}
-              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors"
-              title={running ? "Pause" : "Resume"}>
-              {running
-                ? <Pause className="h-3 w-3 text-muted-foreground" />
-                : <Play className="h-3 w-3 text-muted-foreground" />}
-            </button>
-            <button onClick={(e) => { e.preventDefault(); onStop(); }}
-              className="h-6 w-6 rounded-md flex items-center justify-center hover:bg-sidebar-accent transition-colors"
-              title="Stop">
-              <Square className="h-3 w-3 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-
-        {/* Project + duration */}
-        <div className="flex items-center gap-2 mt-1.5 pl-3">
-          {session.projectName && (
-            <span className="text-xs text-muted-foreground truncate">{session.projectName}</span>
-          )}
-          {session.projectName && <span className="text-xs text-muted-foreground/30">·</span>}
-          <span className="text-xs font-mono tabular-nums text-muted-foreground">{formatDuration(seconds)}</span>
-        </div>
-      </div>
-    </NavLink>
-  );
-}
 
 // ─── Clock-in/out widget ──────────────────────────────────────────────────────
 
@@ -478,7 +405,6 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
   const {
     activeWorkspace, setActiveWorkspace, workspaceRole, myTeams, allWorkspaceTeams,
     settings, wsPermissions, clockedIn, clockInTime, clockIn, clockOut,
-    activeSession, sessionSeconds, sessionRunning, pauseSession, resumeSession, stopSession,
     settingsSection, setSettingsSection, selectedTeamId, setSelectedTeamId,
   } = useApp();
 
@@ -612,43 +538,39 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
         ) : (
           /* ─── NORMAL MODE ─── */
           <>
-            {MAIN_NAV.map((item, i) => {
-              if (item === null) {
-                return collapsed ? null : <div key={`sep-${i}`} className="my-1 mx-1 h-px bg-sidebar-border" />;
-              }
-              return (
-                <NavLink key={item.path} to={item.path} end={item.exact} title={collapsed ? item.label : undefined}
-                  className={({ isActive }) => cn(
-                    "flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors",
-                    collapsed && "justify-center px-0",
-                    isActive ? "bg-sidebar-accent text-sidebar-primary font-medium" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                  )}>
-                  {({ isActive }) => (
-                    <>
-                      <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-sidebar-primary" : "text-muted-foreground")} />
-                      {!collapsed && <span>{item.label}</span>}
-                    </>
-                  )}
-                </NavLink>
-              );
-            })}
-
+            {NAV_GROUPS.map((group, gi) => (
+              <div key={gi} className={cn("space-y-0.5", gi > 0 && "mt-3")}>
+                {group.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    end={item.exact}
+                    title={collapsed ? item.label : undefined}
+                    className={({ isActive }) => cn(
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all",
+                      collapsed && "justify-center px-2",
+                      !isActive && "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                    )}
+                    style={({ isActive }) => isActive ? { backgroundColor: `${item.color}18`, color: item.color } : {}}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <item.icon
+                          className="h-4 w-4 flex-shrink-0"
+                          style={isActive ? { color: item.color } : undefined}
+                        />
+                        {!collapsed && (
+                          <span className={cn(isActive && "font-semibold")}>{item.label}</span>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
           </>
         )}
       </nav>
-
-      {/* ── Active session timer ── */}
-      {activeSession && (
-        <TimerWidget
-          collapsed={collapsed}
-          session={activeSession}
-          seconds={sessionSeconds}
-          running={sessionRunning}
-          onPause={pauseSession}
-          onResume={resumeSession}
-          onStop={stopSession}
-        />
-      )}
 
       {/* ── Clock-in/out (daily mode only) ── */}
       {isDailyMode && (

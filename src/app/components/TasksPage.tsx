@@ -5,6 +5,7 @@ import {
   List, LayoutGrid, Users, User, Check,
   Clock, Timer, CalendarDays, AlertTriangle, GitPullRequest, Ban, UserCircle,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { cn } from "./ui/utils";
 import { useApp } from "../context/AppContext";
 import { TaskDetailModal, TASK_TYPE_META, PRIORITY_META } from "./TaskDetailModal";
@@ -158,12 +159,13 @@ const INSIGHT_STYLES: Record<InsightLevel, string> = {
 // ─── List task card ───────────────────────────────────────────────────────────
 
 function TaskCard({
-  task, projectColor, assigneeName, assigneeInitials, assigneeColor, onChangeStatus, onClick,
+  task, projectColor, projectName, assigneeName, assigneeInitials, assigneeColor, onChangeStatus, onClick, onStartTimer,
 }: {
-  task: Task; projectColor: string;
+  task: Task; projectColor: string; projectName: string;
   assigneeName: string; assigneeInitials: string; assigneeColor: string;
   onChangeStatus: (id: number, status: TaskStatus) => void;
   onClick: () => void;
+  onStartTimer: () => void;
 }) {
   const done = task.status === "COMPLETED";
   const active = task.status === "IN_PROGRESS";
@@ -194,7 +196,7 @@ function TaskCard({
           </p>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {!done && (
-              <button onClick={(e) => { e.stopPropagation(); }} className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary/10 transition-all" title="Start timer">
+              <button onClick={(e) => { e.stopPropagation(); onStartTimer(); }} className="h-7 w-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-primary/10 transition-all" title="Start timer">
                 <Play className="h-3.5 w-3.5 text-primary" />
               </button>
             )}
@@ -361,10 +363,11 @@ function BoardView({ tasks, onChangeStatus, onClickTask, visibleStatuses }: {
 
 // ─── Shared task list renderer ────────────────────────────────────────────────
 
-function TaskList({ tasks, onChangeStatus, onClickTask, emptyMessage }: {
+function TaskList({ tasks, onChangeStatus, onClickTask, onStartTimer, emptyMessage }: {
   tasks: Task[];
   onChangeStatus: (id: number, status: TaskStatus) => void;
   onClickTask: (task: Task) => void;
+  onStartTimer: (task: Task, project: { color: string; name: string }) => void;
   emptyMessage?: string;
 }) {
   if (tasks.length === 0) {
@@ -384,9 +387,11 @@ function TaskList({ tasks, onChangeStatus, onClickTask, emptyMessage }: {
           <TaskCard
             key={task.id} task={task}
             projectColor={project?.color ?? "#abb2bf"}
+            projectName={project?.name ?? "Unknown"}
             assigneeName={assignee?.name ?? "?"} assigneeInitials={assignee?.initials ?? "?"} assigneeColor={assignee?.color ?? "#abb2bf"}
             onChangeStatus={onChangeStatus}
             onClick={() => onClickTask(task)}
+            onStartTimer={() => onStartTimer(task, { color: project?.color ?? "#abb2bf", name: project?.name ?? "Unknown" })}
           />
         );
       })}
@@ -570,7 +575,8 @@ const SCOPE_TABS: { id: ScopeTab; label: string; statuses: TaskStatus[] }[] = [
 ];
 
 export function TasksPage() {
-  const { activeWorkspace, settings } = useApp();
+  const { activeWorkspace, settings, startSession } = useApp();
+  const navigate = useNavigate();
 
   const [scope, setScope] = useState<ScopeTab>("active");
   const [search, setSearch] = useState("");
@@ -714,6 +720,10 @@ export function TasksPage() {
       {scope === "active" && viewMode === "board"
         ? <BoardView tasks={filtered} onChangeStatus={changeTaskStatus} onClickTask={setSelectedTask} visibleStatuses={scopeStatuses} />
         : <TaskList tasks={filtered} onChangeStatus={changeTaskStatus} onClickTask={setSelectedTask}
+            onStartTimer={(task, project) => {
+              startSession({ taskId: task.id, taskTitle: task.title, projectColor: project.color, projectName: project.name });
+              navigate("/timer");
+            }}
             emptyMessage={scope === "backlog" ? "No tasks in backlog." : scope === "archive" ? "No completed tasks." : "No active tasks."} />}
 
       {/* Task detail modal */}
